@@ -1,0 +1,9 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="AirstrikeMapStudio/AirstrikeMapStudio.csproj" Id="30e38179-f6d2-41cc-b07a-dfa3b42a4f37">
+    <Platform Solution="*|x86" Project="x86" />
+  </Project>
+</Solution>
