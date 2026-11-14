@@ -1,10 +1,12 @@
 # AirStrike 3D Map Studio & Script Editor
 
+[![Latest Release](https://img.shields.io/github/v/release/altypeol/AirStrikeStudio?color=brightgreen&logo=github)](https://github.com/altypeol/AirStrikeStudio/releases/latest)
+[![Total Downloads](https://img.shields.io/github/downloads/altypeol/AirStrikeStudio/total?color=blue&logo=github)](https://github.com/altypeol/AirStrikeStudio/releases)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Target Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2-blue.svg)]()
+[![Target Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2%20%7C%204.8-blue.svg)]()
 [![Platform](https://img.shields.io/badge/platform-Windows%20x86-orange.svg)]()
 [![OpenGL](https://img.shields.io/badge/OpenGL-Hardware%20Accelerated-green.svg)]()
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)]()
+[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
 **AirStrike 3D Map Studio** is an advanced, high-performance 3D level editor, real-time terrain sculptor, Bézier flight route authoring suite, and script development environment designed specifically for the DivoGames helicopter combat engine:
 - **AirStrike 3D** (2002)
