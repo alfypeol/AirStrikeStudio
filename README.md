@@ -1,4 +1,4 @@
-# AirStrike 3D Map Studio & Script Studio
+# AirStrike 3D Map Studio & Script Editor
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Target Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2-blue.svg)]()
