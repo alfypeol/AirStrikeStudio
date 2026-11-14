@@ -1,7 +1,7 @@
 # AirStrike 3D Map Studio & Script Editor
 
-[![Latest Release](https://img.shields.io/github/v/release/altypeol/AirStrikeStudio?color=brightgreen&logo=github)](https://github.com/altypeol/AirStrikeStudio/releases/latest)
-[![Total Downloads](https://img.shields.io/github/downloads/altypeol/AirStrikeStudio/total?color=blue&logo=github)](https://github.com/altypeol/AirStrikeStudio/releases)
+[![Latest Release](https://img.shields.io/github/v/release/alfypeol/AirStrikeStudio?color=brightgreen&logo=github)](https://github.com/alfypeol/AirStrikeStudio/releases/latest)
+[![Total Downloads](https://img.shields.io/github/downloads/alfypeol/AirStrikeStudio/total?color=blue&logo=github)](https://github.com/alfypeol/AirStrikeStudio/releases)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Target Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2%20%7C%204.8-blue.svg)]()
 [![Platform](https://img.shields.io/badge/platform-Windows%20x86-orange.svg)]()
