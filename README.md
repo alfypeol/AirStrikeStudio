@@ -157,6 +157,19 @@ bin\x86\Release\AirstrikeMapStudio.exe --self-test "C:\Path\To\AirStrike"
 
 ---
 
+## Acknowledgements & Credits
+
+- **[OpenAirStrike](https://github.com/propaint/openairstrike)** by [**@propaint**](https://github.com/propaint):
+  - A modern, from-scratch C++17 open-source reimplementation of the AirStrike 3D game engine.
+  - Powers AirStrike Map Studio's sub-second **Headless Map Integrity Verification (`F7`)** and direct CLI **Playtest Runner (`F6`)**.
+  - Try the web-playable version at [propaint.github.io/openairstrike](https://propaint.github.io/openairstrike/).
+- **DivoGames**:
+  - The original creators of the classic arcade helicopter trilogy: *AirStrike 3D* (2002), *AirStrike II* (2003), and *AirStrike II: Gulf Thunder* (2004).
+- **Google ANGLE Project**:
+  - Providing the Direct3D 11 backend and hardware-accelerated OpenGL ES rendering pipeline across modern Windows machines.
+
+---
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).
