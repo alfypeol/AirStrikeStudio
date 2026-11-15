@@ -157,7 +157,7 @@ bin\x86\Release\AirstrikeMapStudio.exe --self-test "C:\Path\To\AirStrike"
 
 ---
 
-## Acknowledgements & Credits
+## Credits
 
 - **[OpenAirStrike](https://github.com/propaint/openairstrike)** by [**@propaint**](https://github.com/propaint):
   - A modern, from-scratch C++17 open-source reimplementation of the AirStrike 3D game engine.
