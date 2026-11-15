@@ -74,6 +74,8 @@ namespace AirstrikeStudio
 
             var hm = new ToolStripMenuItem("Help");
             AddMenu(hm, "Controls and known limits", Keys.F1, Help);
+            hm.DropDownItems.Add(new ToolStripSeparator());
+            AddMenu(hm, "About AirStrike Map Studio…", Keys.None, () => EditorHelp.ShowAbout(this));
             menu.Items.Add(hm);
 
             MainMenuStrip = menu;

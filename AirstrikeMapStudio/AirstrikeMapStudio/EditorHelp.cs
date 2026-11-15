@@ -116,6 +116,118 @@ Test saved missions in-game..";
                 form.ShowDialog(owner);
             }
         }
+
+        public static void ShowAbout(IWin32Window owner)
+        {
+            using (var form = new Form
+            {
+                Text = "About AirStrike Map Studio",
+                Width = 590,
+                Height = 520,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                MaximizeBox = false,
+                MinimizeBox = false,
+                StartPosition = FormStartPosition.CenterParent,
+                BackColor = Color.FromArgb(245, 247, 250),
+            })
+            {
+                var titlePanel = new Panel
+                {
+                    Dock = DockStyle.Top,
+                    Height = 85,
+                    BackColor = Color.FromArgb(28, 35, 48),
+                };
+                var appTitle = new Label
+                {
+                    Text = "AirStrike 3D Map Studio & Script Editor",
+                    Font = new Font("Segoe UI", 13f, FontStyle.Bold),
+                    ForeColor = Color.White,
+                    AutoSize = true,
+                    Location = new Point(18, 16),
+                };
+                var appVersion = new Label
+                {
+                    Text = "Version 1.2 — Dual-Engine Edition (x86)",
+                    Font = new Font("Segoe UI", 9.5f, FontStyle.Regular),
+                    ForeColor = Color.FromArgb(170, 195, 230),
+                    AutoSize = true,
+                    Location = new Point(20, 46),
+                };
+                titlePanel.Controls.Add(appTitle);
+                titlePanel.Controls.Add(appVersion);
+
+                var bottomPanel = new Panel
+                {
+                    Dock = DockStyle.Bottom,
+                    Height = 52,
+                    BackColor = Color.FromArgb(235, 238, 242),
+                };
+                var btnClose = new Button
+                {
+                    Text = "Close",
+                    Width = 90,
+                    Height = 32,
+                    Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
+                    Location = new Point(form.ClientSize.Width - 105, 10),
+                    DialogResult = DialogResult.OK,
+                };
+                var btnGithub = new Button
+                {
+                    Text = "Open GitHub Repo",
+                    Width = 145,
+                    Height = 32,
+                    Anchor = AnchorStyles.Bottom | AnchorStyles.Left,
+                    Location = new Point(15, 10),
+                };
+                btnGithub.Click += (s, e) =>
+                {
+                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/alfypeol/AirStrikeStudio") { UseShellExecute = true }); } catch { }
+                };
+                bottomPanel.Controls.Add(btnClose);
+                bottomPanel.Controls.Add(btnGithub);
+
+                var content = new RichTextBox
+                {
+                    Dock = DockStyle.Fill,
+                    ReadOnly = true,
+                    BorderStyle = BorderStyle.None,
+                    BackColor = Color.FromArgb(250, 252, 255),
+                    Font = new Font("Segoe UI", 9.25f),
+                    Padding = new Padding(12),
+                    Text =
+@"Created by alfypeol under the MIT License.
+
+Dual-Engine 3D level editor, real-time terrain sculptor, Bézier flight route authoring suite, and RCSL bytecode script decompiler/compiler for classic helicopter combat games.
+
+─────────────────────────────────────────────────────────────
+ACKNOWLEDGEMENTS & CREDITS
+
+• OpenAirStrike (https://github.com/propaint/openairstrike)
+  Created by @propaint.
+  A modern, from-scratch C++17 engine reimplementation of AirStrike 3D.
+  Powers Map Studio's instant headless map integrity verification (F7)
+  and direct CLI test runner (F6). Web demo: https://propaint.github.io/openairstrike/
+
+• DivoGames
+  Original creators of the classic arcade helicopter combat trilogy:
+  - AirStrike 3D (2002)
+  - AirStrike II (2003)
+  - AirStrike II: Gulf Thunder (2004)
+
+• Google ANGLE Project
+  Direct3D 11 translation layer providing seamless hardware-accelerated
+  OpenGL ES rendering pipeline across Windows systems.
+"
+                };
+
+                form.Controls.Add(content);
+                form.Controls.Add(bottomPanel);
+                form.Controls.Add(titlePanel);
+                form.AcceptButton = btnClose;
+                form.CancelButton = btnClose;
+                form.ShowDialog(owner);
+            }
+        }
     }
 
     /// <summary>
