@@ -98,6 +98,22 @@ Script Studio can be opened anytime inside **AirStrike 3D Map Studio** via:
 4. **Engine API & Functions**: Comprehensive searchable catalog of all built-in functions, exact argument counts, call frequencies, and documentation.
 5. **String Table & RCSL Info**: Displays slot allocations, active entry points, string constant pool, and pre-cache asset manifests.
 
+### IDE Keyboard Shortcuts:
+| Shortcut | Action | Description |
+| :--- | :--- | :--- |
+| **`F5` / `Ctrl + S`** | **Compile & Save** | Compiles C-source or assembly directly to verified binary `.scr` bytecode. |
+| **`Ctrl + Z`** | **Undo** | Reliable multi-level snapshot undo. |
+| **`Ctrl + Y` / `Ctrl + Shift + Z`** | **Redo** | Redoes previously undone changes. |
+| **`Ctrl + /`** | **Toggle Comment** | Toggles line comments `//` on the current line or highlighted block. |
+| **`Tab` / `Shift + Tab`** | **Indent / Outdent** | Indents or outdents selected multi-line blocks by 4 spaces. |
+| **`Ctrl + F`** | **Find in Script** | Opens floating in-editor search bar with forward/backward wrap and match case. |
+| **`Ctrl + H`** | **Find & Replace** | Expands search bar to replace individual occurrences or Replace All. |
+| **`Ctrl + G`** | **Go to Line…** | Prompts for a line number and jumps cursor straight to target. |
+| **`Ctrl + D`** | **Duplicate Line** | Clones current line directly beneath. |
+| **`Alt + Up` / `Alt + Down`** | **Move Line** | Swaps current line with the line above or below it. |
+| **`Ctrl + Space`** | **IntelliSense** | Opens function autocomplete popup with engine tags and parameter documentation. |
+| **`Ctrl + B`** | **Toggle Sidebar** | Collapses or expands the script file explorer panel. |
+
 ---
 
 ## 3. Language Specification (C-Like Source)

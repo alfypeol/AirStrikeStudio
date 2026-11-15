@@ -1589,6 +1589,117 @@ namespace AirstrikeStudio
         private readonly ListBox autoCompleteList = new ListBox();
         private readonly ToolTip autoCompleteTip = new ToolTip { InitialDelay = 100, ReshowDelay = 100, AutoPopDelay = 12000 };
 
+        private TextUndoManager sourceUndo;
+        private TextUndoManager asmUndo;
+
+        public sealed class TextUndoManager
+        {
+            private sealed class Snapshot
+            {
+                public string Text;
+                public int SelectionStart;
+                public int SelectionLength;
+            }
+
+            private readonly Stack<Snapshot> undoStack = new Stack<Snapshot>();
+            private readonly Stack<Snapshot> redoStack = new Stack<Snapshot>();
+            private readonly TextBox box;
+            private bool isUpdating;
+            private DateTime lastChange = DateTime.MinValue;
+
+            public TextUndoManager(TextBox target)
+            {
+                box = target;
+                undoStack.Push(new Snapshot { Text = box.Text ?? "", SelectionStart = 0, SelectionLength = 0 });
+
+                box.TextChanged += (s, e) =>
+                {
+                    if (isUpdating) return;
+                    DateTime now = DateTime.Now;
+                    if ((now - lastChange).TotalMilliseconds > 500)
+                    {
+                        PushSnapshot();
+                    }
+                    lastChange = now;
+                    redoStack.Clear();
+                };
+            }
+
+            public void PushSnapshot()
+            {
+                if (box == null) return;
+                string currentText = box.Text ?? "";
+                if (undoStack.Count > 0 && undoStack.Peek().Text == currentText) return;
+                undoStack.Push(new Snapshot
+                {
+                    Text = currentText,
+                    SelectionStart = box.SelectionStart,
+                    SelectionLength = box.SelectionLength
+                });
+                if (undoStack.Count > 80)
+                {
+                    var arr = undoStack.ToArray();
+                    undoStack.Clear();
+                    for (int i = Math.Min(arr.Length - 1, 70); i >= 0; i--)
+                        undoStack.Push(arr[i]);
+                }
+            }
+
+            public void ResetHistory()
+            {
+                undoStack.Clear();
+                redoStack.Clear();
+                undoStack.Push(new Snapshot { Text = box.Text ?? "", SelectionStart = 0, SelectionLength = 0 });
+            }
+
+            public bool CanUndo => undoStack.Count > 1;
+            public bool CanRedo => redoStack.Count > 0;
+
+            public void Undo()
+            {
+                if (undoStack.Count <= 1) return;
+                isUpdating = true;
+                try
+                {
+                    redoStack.Push(new Snapshot
+                    {
+                        Text = box.Text ?? "",
+                        SelectionStart = box.SelectionStart,
+                        SelectionLength = box.SelectionLength
+                    });
+                    undoStack.Pop(); // current state
+                    var prev = undoStack.Peek();
+                    box.Text = prev.Text;
+                    box.SelectionStart = Math.Max(0, Math.Min(box.TextLength, prev.SelectionStart));
+                    box.SelectionLength = Math.Max(0, Math.Min(box.TextLength - box.SelectionStart, prev.SelectionLength));
+                    box.ScrollToCaret();
+                }
+                finally
+                {
+                    isUpdating = false;
+                }
+            }
+
+            public void Redo()
+            {
+                if (redoStack.Count == 0) return;
+                isUpdating = true;
+                try
+                {
+                    var next = redoStack.Pop();
+                    undoStack.Push(next);
+                    box.Text = next.Text;
+                    box.SelectionStart = Math.Max(0, Math.Min(box.TextLength, next.SelectionStart));
+                    box.SelectionLength = Math.Max(0, Math.Min(box.TextLength - box.SelectionStart, next.SelectionLength));
+                    box.ScrollToCaret();
+                }
+                finally
+                {
+                    isUpdating = false;
+                }
+            }
+        }
+
         public class ScriptItem
         {
             public string RelativePath;
@@ -1631,6 +1742,7 @@ namespace AirstrikeStudio
                 ReadOnly = readOnly,
                 ScrollBars = ScrollBars.Both,
                 WordWrap = false,
+                AcceptsTab = true,
                 Font = codeFont,
                 BackColor = readOnly ? Color.FromArgb(248, 250, 252) : Color.White,
             };
@@ -1658,6 +1770,10 @@ namespace AirstrikeStudio
             enableCtrlA(infoBox);
             enableCtrlA(objDefBox);
 
+            // Pre-declare IDE actions for top toolbar and shortcuts
+            Action<bool> showFindBar = null;
+            Action<TextBox> goToLine = null;
+
             // ── Top Toolbar ───────────────────────────────────────────────────
             var topPanel = new Panel
             {
@@ -1684,9 +1800,10 @@ namespace AirstrikeStudio
                 Dock = DockStyle.Right,
                 AutoSize = true,
                 AutoSizeMode = AutoSizeMode.GrowAndShrink,
-                Height = 60,
+                Height = 56,
+                WrapContents = false,
                 FlowDirection = FlowDirection.RightToLeft,
-                Padding = new Padding(0, 4, 0, 0),
+                Padding = new Padding(0, 10, 0, 0),
             };
 
             assembleBtn.Text = "Compile && Save (F5)";
@@ -1696,35 +1813,52 @@ namespace AirstrikeStudio
             assembleBtn.BackColor = Color.FromArgb(220, 252, 231);
             assembleBtn.Click += (s, e) => AssembleAndSave();
 
-            var compileToAsmBtn = new Button
+            targetEngineCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            targetEngineCombo.Font = new Font("Segoe UI", 9f);
+            targetEngineCombo.Width = 220;
+            targetEngineCombo.Height = 32;
+            targetEngineCombo.Items.Add("Target: Auto-Detect");
+            targetEngineCombo.Items.Add("Target: AirStrike 3D [85 Builtins]");
+            targetEngineCombo.Items.Add("Target: Sequel / OpenAirStrike [101]");
+            targetEngineCombo.SelectedIndex = 0;
+            targetEngineCombo.SelectedIndexChanged += (s, e) =>
             {
-                Text = "Compile to ASM",
+                CheckScriptCompatibility();
+                PopulateApiList();
+            };
+
+            var moreToolsBtn = new Button
+            {
+                Text = "Tools ▾",
                 Font = new Font("Segoe UI", 9f),
                 AutoSize = true,
                 Height = 32,
             };
-            compileToAsmBtn.Click += (s, e) => CompileSourceToAsmPreview();
 
-            assignToUnitBtn.Text = "Assign to Selected Unit";
-            assignToUnitBtn.AutoSize = true;
-            assignToUnitBtn.Height = 32;
-            assignToUnitBtn.Enabled = preview != null && preview.SelectedIndex >= 0;
-            assignToUnitBtn.Click += (s, e) => AssignToCurrentMapUnit();
+            var moreToolsMenu = new ContextMenuStrip();
+            var assignItem = moreToolsMenu.Items.Add("Assign to Selected Map Unit", null, (s, e) => AssignToCurrentMapUnit());
+            assignItem.Enabled = preview != null && preview.SelectedIndex >= 0;
+            moreToolsMenu.Items.Add("New / Clone Script…", null, (s, e) => ShowNewCloneDialog());
+            moreToolsMenu.Items.Add(new ToolStripSeparator());
+            moreToolsMenu.Items.Add("Find in Script… (Ctrl+F)", null, (s, e) => { if (showFindBar != null) showFindBar(false); });
+            moreToolsMenu.Items.Add("Find && Replace… (Ctrl+H)", null, (s, e) => { if (showFindBar != null) showFindBar(true); });
+            moreToolsMenu.Items.Add("Go to Line… (Ctrl+G)", null, (s, e) =>
+            {
+                TextBox active = editorTabs.SelectedIndex == 1 ? asmBox : sourceBox;
+                if (goToLine != null) goToLine(active);
+            });
+            moreToolsMenu.Items.Add(new ToolStripSeparator());
+            moreToolsMenu.Items.Add("Compile Source to ASM View", null, (s, e) => CompileSourceToAsmPreview());
+            moreToolsMenu.Items.Add("Export Decompiled C (.c)…", null, (s, e) => ExportFile(false));
+            moreToolsMenu.Items.Add("Export Assembly (.asm)…", null, (s, e) => ExportFile(true));
+            moreToolsMenu.Items.Add(new ToolStripSeparator());
+            moreToolsMenu.Items.Add("Open in External ScriptStudio.py…", null, (s, e) => LaunchExternalScriptStudio());
 
-            newCloneBtn.Text = "New / Clone…";
-            newCloneBtn.AutoSize = true;
-            newCloneBtn.Height = 32;
-            newCloneBtn.Click += (s, e) => ShowNewCloneDialog();
-
-            exportSourceBtn.Text = "Export .c…";
-            exportSourceBtn.AutoSize = true;
-            exportSourceBtn.Height = 32;
-            exportSourceBtn.Click += (s, e) => ExportFile(false);
-
-            exportAsmBtn.Text = "Export .asm…";
-            exportAsmBtn.AutoSize = true;
-            exportAsmBtn.Height = 32;
-            exportAsmBtn.Click += (s, e) => ExportFile(true);
+            moreToolsBtn.Click += (s, e) =>
+            {
+                assignItem.Enabled = preview != null && preview.SelectedIndex >= 0;
+                moreToolsMenu.Show(moreToolsBtn, 0, moreToolsBtn.Height);
+            };
 
             var sidebarToggleBtn = new Button
             {
@@ -1734,28 +1868,9 @@ namespace AirstrikeStudio
                 Height = 32,
             };
 
-            openExternalToolBtn.Text = "Open in ScriptStudio.py…";
-            openExternalToolBtn.AutoSize = true;
-            openExternalToolBtn.Height = 32;
-            openExternalToolBtn.Click += (s, e) => LaunchExternalScriptStudio();
-
-            targetEngineCombo.DropDownStyle = ComboBoxStyle.DropDownList;
-            targetEngineCombo.Font = new Font("Segoe UI", 9f);
-            targetEngineCombo.Width = 240;
-            targetEngineCombo.Height = 32;
-            targetEngineCombo.Items.Add("Target: Auto-Detect");
-            targetEngineCombo.Items.Add("Target: AirStrike 3D [Original (85 Builtins)]");
-            targetEngineCombo.Items.Add("Target: Sequel / OpenAirStrike [101 Builtins]");
-            targetEngineCombo.SelectedIndex = 0;
-            targetEngineCombo.SelectedIndexChanged += (s, e) =>
-            {
-                CheckScriptCompatibility();
-                PopulateApiList();
-            };
-
             actionsFlow.Controls.AddRange(new Control[]
             {
-                assembleBtn, compileToAsmBtn, targetEngineCombo, assignToUnitBtn, newCloneBtn, exportSourceBtn, exportAsmBtn, sidebarToggleBtn, openExternalToolBtn
+                assembleBtn, targetEngineCombo, moreToolsBtn, sidebarToggleBtn
             });
 
             topPanel.Controls.Add(scriptTitleLabel);
@@ -2172,6 +2287,423 @@ namespace AirstrikeStudio
             editorContainer.Controls.Add(autoCompleteList);
             autoCompleteList.BringToFront();
 
+            // ── Floating In-Editor Find & Replace Bar ───────────────────────────
+            var findPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 38,
+                BackColor = Color.FromArgb(238, 242, 246),
+                Visible = false,
+                Padding = new Padding(6, 4, 6, 4),
+            };
+
+            var lblFind = new Label { Text = "Find:", AutoSize = true, Location = new Point(8, 10), Font = new Font("Segoe UI", 9f) };
+            var findInput = new TextBox { Width = 150, Location = new Point(46, 7), Font = new Font("Segoe UI", 9f) };
+            var btnFindNext = new Button { Text = "Next (↓)", Width = 64, Height = 25, Location = new Point(202, 6), Font = new Font("Segoe UI", 8.5f) };
+            var btnFindPrev = new Button { Text = "Prev (↑)", Width = 64, Height = 25, Location = new Point(270, 6), Font = new Font("Segoe UI", 8.5f) };
+            var chkMatchCase = new CheckBox { Text = "Match Case", AutoSize = true, Location = new Point(340, 9), Font = new Font("Segoe UI", 8.5f) };
+
+            var lblReplace = new Label { Text = "Replace:", AutoSize = true, Location = new Point(434, 10), Font = new Font("Segoe UI", 9f) };
+            var replaceInput = new TextBox { Width = 130, Location = new Point(490, 7), Font = new Font("Segoe UI", 9f) };
+            var btnReplace = new Button { Text = "Replace", Width = 62, Height = 25, Location = new Point(626, 6), Font = new Font("Segoe UI", 8.5f) };
+            var btnReplaceAll = new Button { Text = "All", Width = 40, Height = 25, Location = new Point(692, 6), Font = new Font("Segoe UI", 8.5f) };
+            var findStatusLabel = new Label { Text = "", AutoSize = true, Location = new Point(738, 10), Font = new Font("Segoe UI", 8.5f), ForeColor = Color.FromArgb(71, 85, 105) };
+
+            var btnCloseFind = new Button
+            {
+                Text = "✕",
+                Width = 26,
+                Height = 25,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right,
+                Location = new Point(findPanel.Width - 32, 6),
+                Font = new Font("Segoe UI", 8.5f, FontStyle.Bold)
+            };
+
+            findPanel.Controls.AddRange(new Control[]
+            {
+                lblFind, findInput, btnFindNext, btnFindPrev, chkMatchCase,
+                lblReplace, replaceInput, btnReplace, btnReplaceAll,
+                findStatusLabel, btnCloseFind
+            });
+
+            Action<bool> doFind = reverse =>
+            {
+                TextBox activeBox = editorTabs.SelectedTab == tabAsm ? asmBox : sourceBox;
+                string query = findInput.Text;
+                if (string.IsNullOrEmpty(query)) return;
+
+                StringComparison comp = chkMatchCase.Checked ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+                string allText = activeBox.Text;
+                if (string.IsNullOrEmpty(allText)) { findStatusLabel.Text = "No text"; return; }
+
+                int startPos = activeBox.SelectionStart;
+                int foundIdx = -1;
+
+                if (!reverse)
+                {
+                    int searchFrom = startPos + activeBox.SelectionLength;
+                    if (searchFrom < allText.Length)
+                        foundIdx = allText.IndexOf(query, searchFrom, comp);
+                    if (foundIdx < 0)
+                        foundIdx = allText.IndexOf(query, 0, comp);
+                }
+                else
+                {
+                    int searchFrom = startPos - 1;
+                    if (searchFrom >= 0)
+                        foundIdx = allText.LastIndexOf(query, searchFrom, comp);
+                    if (foundIdx < 0)
+                        foundIdx = allText.LastIndexOf(query, allText.Length - 1, comp);
+                }
+
+                if (foundIdx >= 0)
+                {
+                    activeBox.Select(foundIdx, query.Length);
+                    activeBox.ScrollToCaret();
+                    activeBox.Focus();
+                    findStatusLabel.Text = "Found";
+                    findStatusLabel.ForeColor = Color.FromArgb(22, 101, 52);
+                }
+                else
+                {
+                    findStatusLabel.Text = "No match";
+                    findStatusLabel.ForeColor = Color.FromArgb(185, 28, 28);
+                }
+            };
+
+            btnFindNext.Click += (s, e) => doFind(false);
+            btnFindPrev.Click += (s, e) => doFind(true);
+
+            btnReplace.Click += (s, e) =>
+            {
+                TextBox activeBox = editorTabs.SelectedTab == tabAsm ? asmBox : sourceBox;
+                if (activeBox.ReadOnly) return;
+                string query = findInput.Text;
+                if (string.IsNullOrEmpty(query)) return;
+                StringComparison comp = chkMatchCase.Checked ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+                if (activeBox.SelectionLength > 0 && activeBox.SelectedText.Equals(query, comp))
+                {
+                    activeBox.SelectedText = replaceInput.Text;
+                }
+                doFind(false);
+            };
+
+            btnReplaceAll.Click += (s, e) =>
+            {
+                TextBox activeBox = editorTabs.SelectedTab == tabAsm ? asmBox : sourceBox;
+                if (activeBox.ReadOnly) return;
+                string query = findInput.Text;
+                if (string.IsNullOrEmpty(query)) return;
+                StringComparison comp = chkMatchCase.Checked ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+                string text = activeBox.Text;
+                int count = 0;
+                int idx = 0;
+                while ((idx = text.IndexOf(query, idx, comp)) >= 0)
+                {
+                    count++;
+                    idx += query.Length;
+                }
+                if (count > 0)
+                {
+                    if (comp == StringComparison.Ordinal)
+                        activeBox.Text = text.Replace(query, replaceInput.Text);
+                    else
+                        activeBox.Text = Regex.Replace(text, Regex.Escape(query), Regex.Replace(replaceInput.Text, @"([$\\])", "$$$1"), RegexOptions.IgnoreCase);
+                    findStatusLabel.Text = string.Format("{0} replaced", count);
+                    findStatusLabel.ForeColor = Color.FromArgb(22, 101, 52);
+                }
+                else
+                {
+                    findStatusLabel.Text = "0 replaced";
+                    findStatusLabel.ForeColor = Color.FromArgb(100, 116, 139);
+                }
+            };
+
+            btnCloseFind.Click += (s, e) =>
+            {
+                findPanel.Visible = false;
+                TextBox activeBox = editorTabs.SelectedTab == tabAsm ? asmBox : sourceBox;
+                activeBox.Focus();
+            };
+
+            KeyEventHandler findKeyHandler = (s, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    doFind(e.Shift);
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+                else if (e.KeyCode == Keys.Escape)
+                {
+                    findPanel.Visible = false;
+                    TextBox activeBox = editorTabs.SelectedTab == tabAsm ? asmBox : sourceBox;
+                    activeBox.Focus();
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+            };
+            findInput.KeyDown += findKeyHandler;
+            replaceInput.KeyDown += findKeyHandler;
+
+            showFindBar = withReplace =>
+            {
+                findPanel.Visible = true;
+                lblReplace.Visible = withReplace;
+                replaceInput.Visible = withReplace;
+                btnReplace.Visible = withReplace;
+                btnReplaceAll.Visible = withReplace;
+
+                TextBox activeBox = editorTabs.SelectedTab == tabAsm ? asmBox : sourceBox;
+                if (activeBox.SelectionLength > 0 && !activeBox.SelectedText.Contains("\n"))
+                {
+                    findInput.Text = activeBox.SelectedText;
+                }
+                findInput.Focus();
+                findInput.SelectAll();
+            };
+
+            goToLine = box =>
+            {
+                using (var dlg = new Form
+                {
+                    Text = "Go to Line",
+                    Width = 270,
+                    Height = 140,
+                    FormBorderStyle = FormBorderStyle.FixedDialog,
+                    StartPosition = FormStartPosition.CenterParent,
+                    MaximizeBox = false,
+                    MinimizeBox = false,
+                })
+                {
+                    int totalLines = box.Lines.Length;
+                    int currentLine = box.GetLineFromCharIndex(box.SelectionStart) + 1;
+                    var lbl = new Label { Text = string.Format("Line number (1 - {0}):", totalLines), Location = new Point(15, 15), AutoSize = true };
+                    var num = new NumericUpDown { Minimum = 1, Maximum = Math.Max(1, totalLines), Value = currentLine, Location = new Point(18, 40), Width = 130 };
+                    var btnGo = new Button { Text = "Go", Location = new Point(160, 38), Width = 75, Height = 26, DialogResult = DialogResult.OK };
+                    dlg.Controls.AddRange(new Control[] { lbl, num, btnGo });
+                    dlg.AcceptButton = btnGo;
+                    if (dlg.ShowDialog(this) == DialogResult.OK)
+                    {
+                        int targetLine = (int)num.Value - 1;
+                        int charIdx = box.GetFirstCharIndexFromLine(targetLine);
+                        if (charIdx >= 0)
+                        {
+                            box.SelectionStart = charIdx;
+                            box.SelectionLength = 0;
+                            box.ScrollToCaret();
+                            box.Focus();
+                        }
+                    }
+                }
+            };
+
+            Action<TextBox> toggleComment = box =>
+            {
+                int selStart = box.SelectionStart;
+                int selLen = box.SelectionLength;
+                int startLine = box.GetLineFromCharIndex(selStart);
+                int endLine = box.GetLineFromCharIndex(selStart + Math.Max(0, selLen - 1));
+
+                var lines = box.Lines;
+                if (lines == null || lines.Length == 0) return;
+
+                bool allCommented = true;
+                for (int i = startLine; i <= endLine && i < lines.Length; i++)
+                {
+                    string trimmed = lines[i].TrimStart();
+                    if (trimmed.Length > 0 && !trimmed.StartsWith("//"))
+                    {
+                        allCommented = false;
+                        break;
+                    }
+                }
+
+                for (int i = startLine; i <= endLine && i < lines.Length; i++)
+                {
+                    if (allCommented)
+                    {
+                        int idx = lines[i].IndexOf("//");
+                        if (idx >= 0)
+                        {
+                            int removeLen = (idx + 2 < lines[i].Length && lines[i][idx + 2] == ' ') ? 3 : 2;
+                            lines[i] = lines[i].Remove(idx, removeLen);
+                        }
+                    }
+                    else
+                    {
+                        int indent = 0;
+                        while (indent < lines[i].Length && (lines[i][indent] == ' ' || lines[i][indent] == '\t')) indent++;
+                        lines[i] = lines[i].Insert(indent, "// ");
+                    }
+                }
+
+                box.Lines = lines;
+                int newCharIndex = box.GetFirstCharIndexFromLine(startLine);
+                int endCharIndex = endLine < lines.Length - 1 ? box.GetFirstCharIndexFromLine(endLine + 1) : box.TextLength;
+                box.SelectionStart = newCharIndex >= 0 ? newCharIndex : selStart;
+                box.SelectionLength = Math.Max(0, endCharIndex - box.SelectionStart);
+            };
+
+            Action<TextBox, bool> handleIndent = (box, outdent) =>
+            {
+                int selStart = box.SelectionStart;
+                int selLen = box.SelectionLength;
+                int startLine = box.GetLineFromCharIndex(selStart);
+                int endLine = box.GetLineFromCharIndex(selStart + Math.Max(0, selLen - 1));
+
+                if (startLine == endLine && selLen == 0 && !outdent)
+                {
+                    box.SelectedText = "    ";
+                    return;
+                }
+
+                var lines = box.Lines;
+                if (lines == null || lines.Length == 0) return;
+
+                for (int i = startLine; i <= endLine && i < lines.Length; i++)
+                {
+                    if (outdent)
+                    {
+                        if (lines[i].StartsWith("    ")) lines[i] = lines[i].Substring(4);
+                        else if (lines[i].StartsWith("\t")) lines[i] = lines[i].Substring(1);
+                        else lines[i] = lines[i].TrimStart(' ');
+                    }
+                    else
+                    {
+                        lines[i] = "    " + lines[i];
+                    }
+                }
+                box.Lines = lines;
+                int newStart = box.GetFirstCharIndexFromLine(startLine);
+                int newEnd = endLine < lines.Length - 1 ? box.GetFirstCharIndexFromLine(endLine + 1) : box.TextLength;
+                box.SelectionStart = newStart >= 0 ? newStart : selStart;
+                box.SelectionLength = Math.Max(0, newEnd - box.SelectionStart);
+            };
+
+            Action<TextBox> duplicateLine = box =>
+            {
+                int lineIndex = box.GetLineFromCharIndex(box.SelectionStart);
+                var lines = box.Lines;
+                if (lines == null || lineIndex < 0 || lineIndex >= lines.Length) return;
+                string lineText = lines[lineIndex];
+                int charIndex = box.GetFirstCharIndexFromLine(lineIndex);
+                box.Select(charIndex + lineText.Length, 0);
+                box.SelectedText = "\r\n" + lineText;
+            };
+
+            Action<TextBox, bool> moveLine = (box, moveUp) =>
+            {
+                int lineIndex = box.GetLineFromCharIndex(box.SelectionStart);
+                var lines = box.Lines;
+                if (lines == null || lineIndex < 0 || lineIndex >= lines.Length) return;
+                if (moveUp && lineIndex > 0)
+                {
+                    string temp = lines[lineIndex];
+                    lines[lineIndex] = lines[lineIndex - 1];
+                    lines[lineIndex - 1] = temp;
+                    box.Lines = lines;
+                    int newChar = box.GetFirstCharIndexFromLine(lineIndex - 1);
+                    if (newChar >= 0) box.SelectionStart = newChar;
+                }
+                else if (!moveUp && lineIndex < lines.Length - 1)
+                {
+                    string temp = lines[lineIndex];
+                    lines[lineIndex] = lines[lineIndex + 1];
+                    lines[lineIndex + 1] = temp;
+                    box.Lines = lines;
+                    int newChar = box.GetFirstCharIndexFromLine(lineIndex + 1);
+                    if (newChar >= 0) box.SelectionStart = newChar;
+                }
+            };
+
+            sourceUndo = new TextUndoManager(sourceBox);
+            asmUndo = new TextUndoManager(asmBox);
+
+            Action<TextBox, TextUndoManager> setupEditorShortcuts = (box, undoMgr) =>
+            {
+                box.KeyDown += (s, e) =>
+                {
+                    if (e.Control && e.KeyCode == Keys.Z)
+                    {
+                        if (e.Shift) undoMgr.Redo();
+                        else undoMgr.Undo();
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Control && e.KeyCode == Keys.Y)
+                    {
+                        undoMgr.Redo();
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Control && (e.KeyCode == Keys.OemQuestion || e.KeyCode == Keys.Divide))
+                    {
+                        undoMgr.PushSnapshot();
+                        toggleComment(box);
+                        undoMgr.PushSnapshot();
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.KeyCode == Keys.Tab)
+                    {
+                        undoMgr.PushSnapshot();
+                        handleIndent(box, e.Shift);
+                        undoMgr.PushSnapshot();
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Control && e.KeyCode == Keys.D)
+                    {
+                        undoMgr.PushSnapshot();
+                        duplicateLine(box);
+                        undoMgr.PushSnapshot();
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Alt && (e.KeyCode == Keys.Up || e.KeyCode == Keys.Down))
+                    {
+                        undoMgr.PushSnapshot();
+                        moveLine(box, e.KeyCode == Keys.Up);
+                        undoMgr.PushSnapshot();
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Control && e.KeyCode == Keys.F)
+                    {
+                        showFindBar(false);
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Control && e.KeyCode == Keys.H)
+                    {
+                        showFindBar(true);
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                        return;
+                    }
+                    if (e.Control && e.KeyCode == Keys.G)
+                    {
+                        goToLine(box);
+                        e.SuppressKeyPress = true;
+                        e.Handled = true;
+                        return;
+                    }
+                };
+            };
+
+            setupEditorShortcuts(sourceBox, sourceUndo);
+            setupEditorShortcuts(asmBox, asmUndo);
+
             var editorFooter = new StatusStrip
             {
                 Dock = DockStyle.Bottom,
@@ -2183,7 +2715,7 @@ namespace AirstrikeStudio
             var statusMode = new ToolStripStatusLabel { Text = "C-Source Mode", AutoSize = false, Width = 120 };
             var statusHelp = new ToolStripStatusLabel
             {
-                Text = "F5: Compile & Save | Ctrl+B: Toggle Sidebar | Ctrl+O: Open",
+                Text = "F5: Compile & Save | Ctrl+F: Find | Ctrl+/: Comment | Tab: Indent | Ctrl+Z/Y: Undo/Redo | Ctrl+G: Line | Ctrl+B: Sidebar",
                 Spring = true,
                 TextAlign = ContentAlignment.MiddleRight,
                 ForeColor = Color.FromArgb(100, 116, 139)
@@ -2237,10 +2769,12 @@ namespace AirstrikeStudio
                 }
             };
 
+            editorContainer.Controls.Add(findPanel);
             editorContainer.Controls.Add(editorTabs);
             editorContainer.Controls.Add(editorFooter);
             editorFooter.SendToBack();
             editorTabs.BringToFront();
+            findPanel.BringToFront();
 
             split.Panel2.Controls.Add(editorContainer);
             Controls.Add(split);
@@ -2292,6 +2826,29 @@ namespace AirstrikeStudio
                 else if (e.Control && e.KeyCode == Keys.O)
                 {
                     OpenExternalScrFile();
+                    e.Handled = true;
+                }
+                else if (e.Control && e.KeyCode == Keys.F)
+                {
+                    showFindBar(false);
+                    e.Handled = true;
+                }
+                else if (e.Control && e.KeyCode == Keys.H)
+                {
+                    showFindBar(true);
+                    e.Handled = true;
+                }
+                else if (e.Control && e.KeyCode == Keys.G)
+                {
+                    TextBox active = editorTabs.SelectedTab == tabAsm ? asmBox : sourceBox;
+                    goToLine(active);
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.Escape && findPanel.Visible)
+                {
+                    findPanel.Visible = false;
+                    TextBox active = editorTabs.SelectedTab == tabAsm ? asmBox : sourceBox;
+                    active.Focus();
                     e.Handled = true;
                 }
             };
@@ -2465,6 +3022,9 @@ namespace AirstrikeStudio
                 asmBox.Text = originalDiskAsm;
                 sourceBox.Text = currentScr.DecompileToSource();
                 infoBox.Text = currentScr.BuildInfoSummary(fullPath);
+
+                sourceUndo?.ResetHistory();
+                asmUndo?.ResetHistory();
 
                 // Populate Engine API tab & check compatibility
                 PopulateApiList();

@@ -145,6 +145,7 @@ bin\x86\Release\AirstrikeMapStudio.exe --self-test "C:\Path\To\AirStrike"
 
 ## Keyboard Shortcuts Reference
 
+### 3D Map Editor
 | Shortcut | Function | Shortcut | Function |
 | :--- | :--- | :--- | :--- |
 | `Ctrl + N` | New Map | `Ctrl + F` | Focus Selection in 3D View |
@@ -154,6 +155,15 @@ bin\x86\Release\AirstrikeMapStudio.exe --self-test "C:\Path\To\AirStrike"
 | `F4` | Script Studio (.scr editor) | `Ctrl + D` | Interactive Duplicate Stamp |
 | `F5` | Map Checks & Diagnostics | `Del` | Delete Selected Object(s) |
 | `F6` | **Playtest Map (Dual-Engine Runner)** | `F7` | **Verify Map Integrity (Headless)** |
+
+### Script Studio (.scr IDE)
+| Shortcut | Function | Shortcut | Function |
+| :--- | :--- | :--- | :--- |
+| `F5` / `Ctrl + S` | Compile & Save to Bytecode | `Ctrl + Z` / `Ctrl + Y` | Multi-Level Undo / Redo |
+| `Ctrl + /` | Toggle Line Comment (`//`) | `Tab` / `Shift + Tab` | Block Indent / Outdent |
+| `Ctrl + F` / `Ctrl + H` | In-Editor Find / Replace | `Ctrl + G` | Go to Line Number |
+| `Ctrl + D` | Duplicate Current Line | `Alt + Up` / `Alt + Down` | Move Line Up / Down |
+| `Ctrl + Space` | IntelliSense Builtin Catalog | `Ctrl + B` | Toggle Script Library Sidebar |
 
 ---
 
