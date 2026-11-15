@@ -26,3 +26,6 @@ ehthumbs.db
 ## Temporary test files
 *.tmp
 *.log
+
+## Distribution artifacts
+dist/

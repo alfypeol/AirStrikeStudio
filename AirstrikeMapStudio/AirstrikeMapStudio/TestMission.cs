@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows.Forms;
 
 namespace AirstrikeStudio
@@ -381,9 +383,9 @@ namespace AirstrikeStudio
                 Height = 26,
                 TextAlign = ContentAlignment.MiddleLeft,
                 Text = exeFound
-                    ? "Game: " + Path.GetFileName(detectedExe) + " (" + detectedExe + ")"
+                    ? "Game: " + Path.GetFileName(detectedExe) + (TestGameLauncher.IsOpenAirStrike(detectedExe) ? " [OpenAirStrike Native]" : " [Legacy Trilogy]") + " (" + detectedExe + ")"
                     : "No game executable automatically found beside data folder.",
-                ForeColor = exeFound ? Color.DarkGreen : Color.DarkOrange,
+                ForeColor = exeFound ? (TestGameLauncher.IsOpenAirStrike(detectedExe) ? Color.FromArgb(16, 120, 50) : Color.DarkGreen) : Color.DarkOrange,
             };
 
             var browseExeBtn = new Button
@@ -396,6 +398,24 @@ namespace AirstrikeStudio
             exePanel.Controls.Add(browseExeBtn);
             flow.Controls.Add(exePanel);
 
+            // Engine Mode & Options Panel
+            var optionsPanel = new FlowLayoutPanel
+            {
+                Width = 710,
+                Height = 30,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                Margin = new Padding(0, 2, 0, 4),
+            };
+
+            var godModeCheck = new CheckBox
+            {
+                Text = "God Mode (Invulnerable player for rapid testing)",
+                AutoSize = true,
+                Checked = true,
+                Margin = new Padding(0, 4, 16, 0),
+            };
+
             bool canLaunch = launchGame != null || exeFound;
             var launch = new CheckBox
             {
@@ -403,9 +423,12 @@ namespace AirstrikeStudio
                 AutoSize = true,
                 Checked = canLaunch,
                 Enabled = canLaunch,
-                Margin = new Padding(0, 2, 0, 6),
+                Margin = new Padding(0, 4, 0, 0),
             };
-            flow.Controls.Add(launch);
+
+            optionsPanel.Controls.Add(godModeCheck);
+            optionsPanel.Controls.Add(launch);
+            flow.Controls.Add(optionsPanel);
 
             browseExeBtn.Click += (s, e) =>
             {
@@ -422,8 +445,8 @@ namespace AirstrikeStudio
                         TestGameLauncher.CustomExecutablePath = customExecutable;
                         detectedExe = customExecutable;
                         exeFound = true;
-                        exeLabel.Text = "Game: " + Path.GetFileName(detectedExe) + " (" + detectedExe + ")";
-                        exeLabel.ForeColor = Color.DarkGreen;
+                        exeLabel.Text = "Game: " + Path.GetFileName(detectedExe) + (TestGameLauncher.IsOpenAirStrike(detectedExe) ? " [OpenAirStrike Native]" : " [Legacy Trilogy]") + " (" + detectedExe + ")";
+                        exeLabel.ForeColor = TestGameLauncher.IsOpenAirStrike(detectedExe) ? Color.FromArgb(16, 120, 50) : Color.DarkGreen;
                         launch.Enabled = true;
                         launch.Checked = true;
                     }
@@ -434,11 +457,34 @@ namespace AirstrikeStudio
             var buttons = new FlowLayoutPanel { Width = 710, Height = 38, Margin = new Padding(0, 6, 0, 4) };
             var assign = new Button { Text = "Save map and assign", AutoSize = true };
             var launchNow = new Button { Text = "Launch / focus game", AutoSize = true, Enabled = exeFound };
+            var verifyHeadlessBtn = new Button
+            {
+                Text = "🔍 Verify Map (Headless)…",
+                AutoSize = true,
+                BackColor = Color.FromArgb(240, 249, 255),
+            };
             var restore = new Button { Text = "Restore previous assignment", AutoSize = true };
             var clearLock = new Button { Text = "Clear session lock", AutoSize = true, Visible = false };
             var close = new Button { Text = "Close", DialogResult = DialogResult.Cancel };
 
-            buttons.Controls.AddRange(new Control[] { assign, launchNow, restore, clearLock, close });
+            verifyHeadlessBtn.Click += (s, e) =>
+            {
+                try
+                {
+                    Validate();
+                    if (!save()) return;
+                    using (var dlg = new HeadlessVerificationDialog(dataFolder, mapPath(), slots.SelectedIndex, detectedExe))
+                    {
+                        dlg.ShowDialog(this);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "Headless verification failed: " + ex.Message, "Verification Error");
+                }
+            };
+
+            buttons.Controls.AddRange(new Control[] { assign, launchNow, verifyHeadlessBtn, restore, clearLock, close });
             flow.Controls.Add(buttons);
             CancelButton = close;
 
@@ -582,7 +628,7 @@ namespace AirstrikeStudio
                         }
                         else
                         {
-                            proc = TestGameLauncher.LaunchProcess(dataFolder, targetExe, out launchResult);
+                            proc = TestGameLauncher.LaunchProcess(dataFolder, targetExe, out launchResult, slots.SelectedIndex, godModeCheck.Checked);
                         }
                         status.AppendText("\r\n" + launchResult);
 
@@ -640,7 +686,7 @@ namespace AirstrikeStudio
                     }
                     else
                     {
-                        proc = TestGameLauncher.LaunchProcess(dataFolder, targetExe, out launchResult);
+                        proc = TestGameLauncher.LaunchProcess(dataFolder, targetExe, out launchResult, slots.SelectedIndex, godModeCheck.Checked);
                     }
                     status.AppendText("\r\n" + launchResult);
 
@@ -758,13 +804,191 @@ namespace AirstrikeStudio
                 dialog.ShowDialog(owner);
             }
         }
+
+        void VerifyCurrentMapHeadless(IWin32Window owner)
+        {
+            if (string.IsNullOrEmpty(assets.Root) || !Directory.Exists(assets.Root))
+            {
+                MessageBox.Show(owner,
+                    "Please choose a valid game data folder first (File -> Choose game data folder…).",
+                    "Headless Verification");
+                return;
+            }
+            if (string.IsNullOrEmpty(file) || !File.Exists(file))
+            {
+                MessageBox.Show(owner,
+                    "Please open or create and save a map first before verification.",
+                    "Headless Verification");
+                return;
+            }
+
+            if (dirty || file.Length == 0)
+            {
+                if (!Save(false)) return;
+            }
+
+            using (var dialog = new HeadlessVerificationDialog(assets.Root, file, 0))
+            {
+                dialog.ShowDialog(owner);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Interactive dialog that executes OpenAirStrike in headless simulation mode
+    /// (60-120 frames) to audit map geometry, script compilation, textures,
+    /// models, waypoints, and sound assets without launching a 3D window.
+    /// </summary>
+    public sealed class HeadlessVerificationDialog : Form
+    {
+        private readonly string dataFolder;
+        private readonly string mapPath;
+        private readonly int missionSlot;
+        private readonly string customExe;
+        private readonly TextBox reportBox;
+        private readonly Label statusBanner;
+        private readonly Panel topPanel;
+
+        public HeadlessVerificationDialog(string dataFolder, string mapPath, int missionSlot = 0, string customExe = null)
+        {
+            this.dataFolder = dataFolder;
+            this.mapPath = mapPath;
+            this.missionSlot = missionSlot;
+            this.customExe = customExe;
+
+            Text = "Map Integrity Verification — OpenAirStrike Engine (Headless)";
+            Width = 840;
+            Height = 620;
+            MinimumSize = new Size(680, 480);
+            StartPosition = FormStartPosition.CenterParent;
+
+            topPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 60,
+                Padding = new Padding(14, 10, 14, 10),
+                BackColor = Color.FromArgb(241, 245, 249),
+            };
+
+            statusBanner = new Label
+            {
+                Dock = DockStyle.Fill,
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Text = "Running headless verification…",
+                ForeColor = Color.FromArgb(71, 85, 105),
+            };
+            topPanel.Controls.Add(statusBanner);
+
+            reportBox = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Multiline = true,
+                ReadOnly = true,
+                ScrollBars = ScrollBars.Both,
+                Font = new Font("Consolas", 9.5f),
+                WordWrap = false,
+                BackColor = Color.FromArgb(255, 255, 255),
+            };
+
+            var bottomFlow = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Bottom,
+                Height = 44,
+                FlowDirection = FlowDirection.RightToLeft,
+                Padding = new Padding(10, 6, 10, 6),
+                BackColor = Color.FromArgb(248, 250, 252),
+            };
+
+            var closeBtn = new Button { Text = "Close", DialogResult = DialogResult.OK, AutoSize = true, Height = 30 };
+            var copyBtn = new Button { Text = "Copy Report", AutoSize = true, Height = 30 };
+            copyBtn.Click += (s, e) =>
+            {
+                if (!string.IsNullOrEmpty(reportBox.Text))
+                {
+                    Clipboard.SetText(reportBox.Text);
+                    MessageBox.Show(this, "Verification report copied to clipboard.", "Copied");
+                }
+            };
+
+            var rerunBtn = new Button { Text = "🔄 Re-run Check (60 frames)", AutoSize = true, Height = 30 };
+            rerunBtn.Click += (s, e) => RunAudit();
+
+            var testInGameBtn = new Button
+            {
+                Text = "▶ Test in Game (F6)",
+                AutoSize = true,
+                Height = 30,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                BackColor = Color.FromArgb(220, 252, 231),
+                ForeColor = Color.FromArgb(22, 101, 52),
+            };
+            testInGameBtn.Click += (s, e) =>
+            {
+                try
+                {
+                    string targetExe = customExe ?? TestGameLauncher.FindExecutable(dataFolder);
+                    TestGameLauncher.LaunchProcess(dataFolder, targetExe, out string msg, missionSlot, true);
+                    Close();
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(this, "Launch failed: " + ex.Message, "Error");
+                }
+            };
+
+            bottomFlow.Controls.AddRange(new Control[] { closeBtn, copyBtn, rerunBtn, testInGameBtn });
+
+            Controls.Add(reportBox);
+            Controls.Add(topPanel);
+            Controls.Add(bottomFlow);
+
+            Shown += (s, e) => RunAudit();
+        }
+
+        private void RunAudit()
+        {
+            statusBanner.Text = "Running 60-frame headless verification in OpenAirStrike…";
+            statusBanner.ForeColor = Color.FromArgb(30, 41, 59);
+            topPanel.BackColor = Color.FromArgb(241, 245, 249);
+            reportBox.Text = "Running verification simulation… please wait.";
+            Application.DoEvents();
+
+            bool passed = TestGameLauncher.RunHeadlessVerification(
+                dataFolder,
+                missionSlot,
+                out string report,
+                customExe,
+                frames: 60);
+
+            reportBox.Text = report;
+
+            if (report.Contains("❌ FAILED") || report.Contains("CRITICAL"))
+            {
+                statusBanner.Text = "❌ MAP VERIFICATION FAILED — Critical errors detected";
+                statusBanner.ForeColor = Color.DarkRed;
+                topPanel.BackColor = Color.FromArgb(254, 226, 226);
+            }
+            else if (report.Contains("⚠ PASSED WITH WARNINGS") || report.Contains("ASSET / SCRIPT WARNINGS"))
+            {
+                statusBanner.Text = "⚠ MAP VERIFIED WITH WARNINGS — Review missing assets or scripts";
+                statusBanner.ForeColor = Color.FromArgb(133, 77, 14);
+                topPanel.BackColor = Color.FromArgb(254, 240, 138);
+            }
+            else
+            {
+                statusBanner.Text = "✔ MAP INTEGRITY VERIFIED — All geometry, scripts & assets passed";
+                statusBanner.ForeColor = Color.FromArgb(22, 101, 52);
+                topPanel.BackColor = Color.FromArgb(220, 252, 231);
+            }
+        }
     }
 
     public sealed partial class GlTerrainWindow
     {
         private Action runTestMission;
 
-        public void ConnectTestMission(Action action, Func<bool> active)
+        public void ConnectTestMission(Action action, Func<bool> active, Action verifyAction = null)
         {
             runTestMission = action;
 
@@ -782,9 +1006,20 @@ namespace AirstrikeStudio
                 if (flow != null) flow.Controls.Add(tabButton);
             }
 
-            // 2. Add dedicated quick-access button to the documentBar
+            // 2. Add dedicated quick-access buttons to the documentBar
             var docButton = new Button { Text = "Test mission (F6)", AutoSize = true };
             AddDocumentTool(docButton);
+
+            if (verifyAction != null)
+            {
+                var verifyDocButton = new Button { Text = "Verify (F7)", AutoSize = true };
+                AddDocumentTool(verifyDocButton);
+                verifyDocButton.Click += (s, e) =>
+                {
+                    try { verifyAction(); }
+                    catch (Exception error) { MessageBox.Show(this, error.Message, "Verification Error"); }
+                };
+            }
 
             Action refresh = () =>
             {
@@ -841,6 +1076,14 @@ namespace AirstrikeStudio
             if (tabButton != null) tabButton.Click += click;
             if (menuTestMission != null) menuTestMission.Click += click;
             if (menuQuickTest != null) menuQuickTest.Click += click;
+            if (menuVerifyMap != null && verifyAction != null)
+            {
+                menuVerifyMap.Click += (s, e) =>
+                {
+                    try { verifyAction(); }
+                    catch (Exception error) { MessageBox.Show(this, error.Message, "Verification Error"); }
+                };
+            }
 
             Shown += (s, e) => refresh();
             refresh();
@@ -848,14 +1091,16 @@ namespace AirstrikeStudio
     }
 
     /// <summary>
-    /// Locates and launches the game executable. Refuses to launch if an
-    /// AirStrike process is already running, focusing the running game window instead.
-    /// Supports AirStrike 3D, Gulf Thunder, AirStrike II, and modded executables.
+    /// Locates and launches the game executable. Refuses to launch duplicate instances
+    /// if an AirStrike process is already running, focusing the running game window instead.
+    /// Supports Dual Engines: OpenAirStrike Rebuild (Native Win64 CLI launch) and
+    /// Original Game Trilogy (AirStrike 3D, AirStrike II, Gulf Thunder Direct3D 8 via levels.txt).
     /// </summary>
     public static class TestGameLauncher
     {
         private static readonly string[] KnownExecutables = new[]
         {
+            "as3d_game.exe",
             "AirStrike3D II - Gulf.exe",
             "AirStrike3D.exe",
             "as3d2.exe",
@@ -877,6 +1122,30 @@ namespace AirstrikeStudio
         private const int SW_RESTORE = 9;
 
         public static string CustomExecutablePath { get; set; }
+
+        public static bool IsOpenAirStrike(string executable)
+        {
+            if (string.IsNullOrEmpty(executable)) return false;
+            string fname = Path.GetFileName(executable).ToLowerInvariant();
+            return fname.Contains("as3d_game") || fname.Contains("openstrike");
+        }
+
+        public static string ResolveGameRoot(string dataFolder)
+        {
+            if (string.IsNullOrEmpty(dataFolder)) return "";
+            string full = Path.GetFullPath(dataFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            if (Path.GetFileName(full).Equals("data", StringComparison.OrdinalIgnoreCase))
+            {
+                var p = Directory.GetParent(full);
+                if (p != null) return p.FullName;
+            }
+            if (Directory.Exists(Path.Combine(full, "data")))
+            {
+                return full;
+            }
+            var parent = Directory.GetParent(full);
+            return parent != null ? parent.FullName : full;
+        }
 
         public static bool IsUninstallerOrTool(string filename)
         {
@@ -907,28 +1176,37 @@ namespace AirstrikeStudio
             {
                 var fullData = Path.GetFullPath(dataFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 var parent = Directory.GetParent(fullData);
-                if (parent == null || !parent.Exists) return null;
-
-                // 1. Check known executable names in parent folder
-                foreach (var name in KnownExecutables)
+                if (parent != null && parent.Exists)
                 {
-                    string candidate = Path.Combine(parent.FullName, name);
-                    if (File.Exists(candidate)) return candidate;
+                    // 1. Check known executable names in parent folder
+                    foreach (var name in KnownExecutables)
+                    {
+                        string candidate = Path.Combine(parent.FullName, name);
+                        if (File.Exists(candidate)) return candidate;
+                    }
+
+                    // 2. Search all .exe files in parent directory, filtering out uninstallers/tools
+                    var exes = parent.GetFiles("*.exe");
+                    var candidates = exes.Where(f => !IsUninstallerOrTool(f.Name)).ToList();
+
+                    var matched = candidates.FirstOrDefault(f =>
+                    {
+                        string lower = f.Name.ToLowerInvariant();
+                        return lower.Contains("airstrike") || lower.Contains("as3d") ||
+                               lower.Contains("gulf") || lower.Contains("thunder");
+                    });
+                    if (matched != null) return matched.FullName;
+
+                    if (candidates.Count == 1) return candidates[0].FullName;
                 }
 
-                // 2. Search all .exe files in parent directory, filtering out uninstallers/tools
-                var exes = parent.GetFiles("*.exe");
-                var candidates = exes.Where(f => !IsUninstallerOrTool(f.Name)).ToList();
+                // 3. Check beside Map Studio binary
+                string studioExe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "as3d_game.exe");
+                if (File.Exists(studioExe)) return studioExe;
 
-                var matched = candidates.FirstOrDefault(f =>
-                {
-                    string lower = f.Name.ToLowerInvariant();
-                    return lower.Contains("airstrike") || lower.Contains("as3d") ||
-                           lower.Contains("gulf") || lower.Contains("thunder");
-                });
-                if (matched != null) return matched.FullName;
-
-                if (candidates.Count == 1) return candidates[0].FullName;
+                // 4. Check known modded / native win64 build location
+                if (File.Exists(@"E:\AirStrike3D_Modded_Native_Win64\as3d_game.exe"))
+                    return @"E:\AirStrike3D_Modded_Native_Win64\as3d_game.exe";
             }
             catch
             {
@@ -956,7 +1234,7 @@ namespace AirstrikeStudio
             return "AirStrike3D.exe";
         }
 
-        public static ProcessStartInfo StartInfo(string dataFolder, string explicitExe = null)
+        public static ProcessStartInfo StartInfo(string dataFolder, string explicitExe = null, int? missionSlot = null, bool godMode = true)
         {
             string executable = explicitExe ?? FindExecutable(dataFolder) ?? Executable(dataFolder);
             if (!File.Exists(executable))
@@ -964,12 +1242,32 @@ namespace AirstrikeStudio
                     "Game executable was not found beside the selected data folder:\r\n" + executable,
                     executable);
 
-            return new ProcessStartInfo
+            var psi = new ProcessStartInfo
             {
                 FileName = executable,
                 WorkingDirectory = Path.GetDirectoryName(executable),
-                UseShellExecute = true,
             };
+
+            if (IsOpenAirStrike(executable))
+            {
+                string gameRoot = ResolveGameRoot(dataFolder);
+                var args = new StringBuilder();
+                if (!string.IsNullOrEmpty(gameRoot))
+                    args.AppendFormat("--data \"{0}\"", gameRoot);
+                if (missionSlot.HasValue && missionSlot.Value >= 0)
+                    args.AppendFormat(" --level {0}", missionSlot.Value + 1);
+                if (godMode)
+                    args.Append(" --god");
+
+                psi.Arguments = args.ToString().Trim();
+                psi.UseShellExecute = true;
+            }
+            else
+            {
+                psi.UseShellExecute = true;
+            }
+
+            return psi;
         }
 
         public static string Launch(string dataFolder, string explicitExe = null)
@@ -980,7 +1278,12 @@ namespace AirstrikeStudio
 
         public static Process LaunchProcess(string dataFolder, string explicitExe, out string message)
         {
-            var info = StartInfo(dataFolder, explicitExe);
+            return LaunchProcess(dataFolder, explicitExe, out message, null, true);
+        }
+
+        public static Process LaunchProcess(string dataFolder, string explicitExe, out string message, int? missionSlot, bool godMode)
+        {
+            var info = StartInfo(dataFolder, explicitExe, missionSlot, godMode);
             string procName = Path.GetFileNameWithoutExtension(info.FileName);
 
             // Refuse to launch a second instance if game is already running; focus it instead.
@@ -1032,31 +1335,183 @@ namespace AirstrikeStudio
             }
 
             // Ensure DWM mitigation and high DPI awareness are applied for legacy Direct3D 8 execution
-            try
+            if (!IsOpenAirStrike(info.FileName))
             {
-                Environment.SetEnvironmentVariable("__COMPAT_LAYER", "DWM8And16BitMitigation HIGHDPIAWARE");
-                using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"))
+                try
                 {
-                    if (key != null)
+                    Environment.SetEnvironmentVariable("__COMPAT_LAYER", "DWM8And16BitMitigation HIGHDPIAWARE");
+                    using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"))
                     {
-                        object val = key.GetValue(info.FileName);
-                        string sVal = val != null ? val.ToString() : "";
-                        if (!sVal.Contains("DWM8And16BitMitigation"))
+                        if (key != null)
                         {
-                            string newVal = (sVal + " DWM8And16BitMitigation HIGHDPIAWARE").Trim();
-                            key.SetValue(info.FileName, newVal);
+                            object val = key.GetValue(info.FileName);
+                            string sVal = val != null ? val.ToString() : "";
+                            if (!sVal.Contains("DWM8And16BitMitigation"))
+                            {
+                                string newVal = (sVal + " DWM8And16BitMitigation HIGHDPIAWARE").Trim();
+                                key.SetValue(info.FileName, newVal);
+                            }
                         }
                     }
                 }
+                catch { }
             }
-            catch { }
 
             var process = Process.Start(info);
             if (process == null)
                 throw new IOException("Windows did not return a game process.");
 
-            message = "Game launched (" + Path.GetFileName(info.FileName) + "). Select the assigned mission in-game.";
+            if (IsOpenAirStrike(info.FileName))
+            {
+                message = string.Format(
+                    "OpenAirStrike Native launched ({0} --level {1}{2}). Direct mission load active!",
+                    Path.GetFileName(info.FileName),
+                    missionSlot.HasValue ? (missionSlot.Value + 1).ToString() : "1",
+                    godMode ? " --god" : "");
+            }
+            else
+            {
+                message = "Game launched (" + Path.GetFileName(info.FileName) + "). Select the assigned mission in-game.";
+            }
             return process;
+        }
+
+        public static bool RunHeadlessVerification(string dataFolder, int missionSlot, out string report, string explicitExe = null, int frames = 60)
+        {
+            string exe = explicitExe ?? FindExecutable(dataFolder);
+            if (!IsOpenAirStrike(exe))
+            {
+                string candidate = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "as3d_game.exe");
+                if (File.Exists(candidate)) exe = candidate;
+                else if (File.Exists(@"E:\AirStrike3D_Modded_Native_Win64\as3d_game.exe")) exe = @"E:\AirStrike3D_Modded_Native_Win64\as3d_game.exe";
+            }
+
+            if (string.IsNullOrEmpty(exe) || !File.Exists(exe))
+            {
+                report = "OpenAirStrike rebuild engine (as3d_game.exe) not found.\r\n" +
+                         "Headless map verification requires as3d_game.exe.\r\n" +
+                         "Please place as3d_game.exe beside the data folder or in Map Studio directory.";
+                return false;
+            }
+
+            string gameRoot = ResolveGameRoot(dataFolder);
+            int levelNum = missionSlot >= 0 ? missionSlot + 1 : 1;
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = exe,
+                Arguments = string.Format("--data \"{0}\" --level {1} --headless --frames {2}", gameRoot, levelNum, frames),
+                WorkingDirectory = Path.GetDirectoryName(exe),
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+
+            try
+            {
+                using (var proc = Process.Start(psi))
+                {
+                    if (proc == null)
+                    {
+                        report = "Failed to launch headless verification process.";
+                        return false;
+                    }
+
+                    string stdout = proc.StandardOutput.ReadToEnd();
+                    string stderr = proc.StandardError.ReadToEnd();
+                    proc.WaitForExit(15000);
+
+                    var lines = (stdout + "\r\n" + stderr).Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                    var warnings = new List<string>();
+                    var errors = new List<string>();
+                    var infos = new List<string>();
+                    bool missionLoaded = false;
+                    string missionName = "";
+                    string doneSummary = "";
+
+                    foreach (var l in lines)
+                    {
+                        string line = l.Trim();
+                        if (line.StartsWith("mission ", StringComparison.OrdinalIgnoreCase))
+                        {
+                            missionLoaded = true;
+                            missionName = line;
+                        }
+                        else if (line.StartsWith("done:", StringComparison.OrdinalIgnoreCase))
+                        {
+                            doneSummary = line;
+                        }
+                        else if (line.Contains("[error]") || line.Contains("FATAL") || line.Contains("Assertion failed"))
+                        {
+                            errors.Add(line);
+                        }
+                        else if (line.Contains("[warn]") || line.Contains("warning") || line.Contains("missing") || line.Contains("not found"))
+                        {
+                            warnings.Add(line);
+                        }
+                        else if (!string.IsNullOrWhiteSpace(line))
+                        {
+                            infos.Add(line);
+                        }
+                    }
+
+                    var rep = new StringBuilder();
+                    rep.AppendLine("═════════════════════════════════════════════════════════════════════");
+                    rep.AppendLine("  HEADLESS MAP INTEGRITY VERIFICATION REPORT");
+                    rep.AppendLine("═════════════════════════════════════════════════════════════════════");
+                    rep.AppendLine("Engine:       OpenAirStrike Native Win64 (" + Path.GetFileName(exe) + ")");
+                    rep.AppendLine("Data Root:    " + gameRoot);
+                    rep.AppendLine("Mission Slot: [" + missionSlot + "] -> Level " + levelNum + (missionName.Length > 0 ? " (" + missionName + ")" : ""));
+                    rep.AppendLine("Simulation:   " + frames + " frames (" + (frames / 60.0).ToString("0.0") + "s headless playback)");
+                    rep.AppendLine("Status:       " + (errors.Count > 0 ? "❌ FAILED" : (warnings.Count > 0 ? "⚠ PASSED WITH WARNINGS" : "✔ PASSED (ALL CHECKS GREEN)")));
+                    rep.AppendLine("─────────────────────────────────────────────────────────────────────");
+
+                    if (!missionLoaded)
+                    {
+                        rep.AppendLine("❌ CRITICAL: Engine could not initialize or load the specified mission.");
+                    }
+                    else
+                    {
+                        rep.AppendLine("✔ Mission & Map Geometry Loaded Successfully");
+                        if (!string.IsNullOrEmpty(doneSummary))
+                            rep.AppendLine("✔ " + doneSummary);
+                    }
+
+                    if (errors.Count > 0)
+                    {
+                        rep.AppendLine();
+                        rep.AppendLine("ERRORS DETECTED (" + errors.Count + "):");
+                        foreach (var err in errors) rep.AppendLine("  • " + err);
+                    }
+
+                    if (warnings.Count > 0)
+                    {
+                        rep.AppendLine();
+                        rep.AppendLine("ASSET / SCRIPT WARNINGS (" + warnings.Count + "):");
+                        foreach (var warn in warnings) rep.AppendLine("  • " + warn);
+                    }
+                    else
+                    {
+                        rep.AppendLine("✔ No missing scripts, models, textures, or audio detected.");
+                    }
+
+                    if (infos.Count > 0)
+                    {
+                        rep.AppendLine();
+                        rep.AppendLine("ENGINE LOG:");
+                        foreach (var inf in infos) rep.AppendLine("  " + inf);
+                    }
+
+                    report = rep.ToString();
+                    return errors.Count == 0 && missionLoaded;
+                }
+            }
+            catch (Exception ex)
+            {
+                report = "Exception during headless verification: " + ex.Message;
+                return false;
+            }
         }
     }
 }

@@ -1376,6 +1376,175 @@ namespace AirstrikeStudio
     /// C-like decompilation, editable assembly, instant F5 assembly &amp; saving,
     /// assembly diff view, engine API reference, and one-click map object assignment.
     /// </summary>
+    /// <summary>
+    /// Detailed metadata for an engine builtin function across AirStrike 3D and its sequel trilogy.
+    /// </summary>
+    public sealed class EngineBuiltin
+    {
+        public string Name { get; set; }
+        public string Signature { get; set; }
+        public string ReturnType { get; set; }
+        public string Category { get; set; }
+        public bool IsSequelOnly { get; set; }
+        public string Description { get; set; }
+
+        public string EngineTarget => IsSequelOnly ? "Sequel (AS2 / Gulf / OpenAirStrike)" : "Original AirStrike 3D + Sequel";
+        public string ShortTag => IsSequelOnly ? "[Sequel]" : "[AS3D]";
+
+        public string TooltipText => string.Format(
+            "{0}\r\nCompatibility: {1}\r\nCategory: {2} | Returns: {3}\r\n\r\n{4}",
+            Signature, EngineTarget, Category, ReturnType, Description);
+    }
+
+    /// <summary>
+    /// Master repository containing all 101 script built-in functions discovered in the engine.
+    /// Original AirStrike 3D: 85 built-in functions.
+    /// AirStrike II / Gulf Thunder: 101 built-in functions (16 sequel extensions).
+    /// </summary>
+    public static class EngineBuiltinCatalog
+    {
+        public static readonly List<EngineBuiltin> All = new List<EngineBuiltin>
+        {
+            new EngineBuiltin { Name = "debug", Signature = "debug()", ReturnType = "void", Category = "Math / Debug", IsSequelOnly = false, Description = "Prints debug output / script trace message to console or debugger." },
+            new EngineBuiltin { Name = "random", Signature = "random([max])", ReturnType = "float", Category = "Math", IsSequelOnly = false, Description = "Returns pseudorandom float between 0.0 and max (or 0.0..1.0)." },
+            new EngineBuiltin { Name = "crandom", Signature = "crandom()", ReturnType = "float", Category = "Math", IsSequelOnly = false, Description = "Returns centered pseudorandom float between -1.0 and +1.0." },
+            new EngineBuiltin { Name = "sin", Signature = "sin(rad)", ReturnType = "float", Category = "Math", IsSequelOnly = false, Description = "Calculates trigonometric sine of angle in radians." },
+            new EngineBuiltin { Name = "cos", Signature = "cos(rad)", ReturnType = "float", Category = "Math", IsSequelOnly = false, Description = "Calculates trigonometric cosine of angle in radians." },
+            new EngineBuiltin { Name = "tan", Signature = "tan(rad)", ReturnType = "float", Category = "Math", IsSequelOnly = false, Description = "Calculates trigonometric tangent of angle in radians." },
+            new EngineBuiltin { Name = "atan", Signature = "atan(x)", ReturnType = "float", Category = "Math", IsSequelOnly = false, Description = "Calculates arc tangent of x in radians." },
+            new EngineBuiltin { Name = "atan2", Signature = "atan2(y, x)", ReturnType = "float", Category = "Math", IsSequelOnly = true, Description = "Calculates arc tangent of (y, x) in radians with quadrant disambiguation." },
+            new EngineBuiltin { Name = "abs", Signature = "abs(val)", ReturnType = "float", Category = "Math", IsSequelOnly = false, Description = "Returns absolute value of number." },
+            new EngineBuiltin { Name = "min", Signature = "min(a, b)", ReturnType = "float", Category = "Math", IsSequelOnly = false, Description = "Returns minimum of two values." },
+            new EngineBuiltin { Name = "max", Signature = "max(a, b)", ReturnType = "float", Category = "Math", IsSequelOnly = false, Description = "Returns maximum of two values." },
+            new EngineBuiltin { Name = "lerp", Signature = "lerp(a, b, t)", ReturnType = "float", Category = "Math", IsSequelOnly = false, Description = "Linear interpolation between a and b by factor t (0.0..1.0)." },
+            new EngineBuiltin { Name = "copysign", Signature = "copysign(x, y)", ReturnType = "float", Category = "Math", IsSequelOnly = true, Description = "Returns magnitude of x with the sign of y." },
+            new EngineBuiltin { Name = "floor", Signature = "floor(val)", ReturnType = "float", Category = "Math", IsSequelOnly = true, Description = "Returns largest integer value less than or equal to val." },
+            new EngineBuiltin { Name = "floor2", Signature = "floor2(val, step)", ReturnType = "float", Category = "Math", IsSequelOnly = true, Description = "Snaps val down to nearest step interval." },
+            new EngineBuiltin { Name = "fmod", Signature = "fmod(x, y)", ReturnType = "float", Category = "Math", IsSequelOnly = true, Description = "Floating-point remainder of x divided by y." },
+            new EngineBuiltin { Name = "vec_copy", Signature = "vec_copy(dst, src)", ReturnType = "void", Category = "Vector", IsSequelOnly = false, Description = "Copies 3D vector components from src into dst." },
+            new EngineBuiltin { Name = "vec_add", Signature = "vec_add(dst, a, b)", ReturnType = "void", Category = "Vector", IsSequelOnly = false, Description = "Vector addition: dst = a + b." },
+            new EngineBuiltin { Name = "vec_sub", Signature = "vec_sub(dst, a, b)", ReturnType = "void", Category = "Vector", IsSequelOnly = false, Description = "Vector subtraction: dst = a - b." },
+            new EngineBuiltin { Name = "vec_ma", Signature = "vec_ma(dst, a, scale, b)", ReturnType = "void", Category = "Vector", IsSequelOnly = false, Description = "Vector multiply-accumulate: dst = a + scale * b." },
+            new EngineBuiltin { Name = "vec_length", Signature = "vec_length(v)", ReturnType = "float", Category = "Vector", IsSequelOnly = false, Description = "Returns Euclidean length/magnitude of 3D vector v." },
+            new EngineBuiltin { Name = "vec_norm", Signature = "vec_norm(v)", ReturnType = "float", Category = "Vector", IsSequelOnly = false, Description = "Normalizes vector in-place to unit length and returns original length." },
+            new EngineBuiltin { Name = "vec_scale", Signature = "vec_scale(v, s)", ReturnType = "void", Category = "Vector", IsSequelOnly = false, Description = "Scales 3D vector components in-place by scalar s." },
+            new EngineBuiltin { Name = "vec_setlen", Signature = "vec_setlen(v, newLen)", ReturnType = "void", Category = "Vector", IsSequelOnly = false, Description = "Sets 3D vector to specified length preserving direction." },
+            new EngineBuiltin { Name = "vec_toyaw", Signature = "vec_toyaw(v)", ReturnType = "float", Category = "Vector", IsSequelOnly = false, Description = "Calculates yaw angle in degrees from directional vector." },
+            new EngineBuiltin { Name = "vec_toangles", Signature = "vec_toangles(v, outAngles)", ReturnType = "void", Category = "Vector", IsSequelOnly = false, Description = "Converts directional vector into Euler pitch/yaw/roll angles." },
+            new EngineBuiltin { Name = "ClearAxis", Signature = "ClearAxis(matrix)", ReturnType = "void", Category = "Vector", IsSequelOnly = false, Description = "Resets 3x3 orientation rotation matrix to identity." },
+            new EngineBuiltin { Name = "AnglesToAxis", Signature = "AnglesToAxis(angles, matrix)", ReturnType = "void", Category = "Vector", IsSequelOnly = false, Description = "Converts Euler angles into 3x3 rotation transformation matrix." },
+            new EngineBuiltin { Name = "create", Signature = "create(defName, posVec)", ReturnType = "entity", Category = "Entity", IsSequelOnly = false, Description = "Spawns entity, weapon projectile, or particle effect at position." },
+            new EngineBuiltin { Name = "remove", Signature = "remove(entity)", ReturnType = "void", Category = "Entity", IsSequelOnly = false, Description = "Despawns and deletes entity from the game world." },
+            new EngineBuiltin { Name = "activate", Signature = "activate(entity)", ReturnType = "void", Category = "Entity", IsSequelOnly = false, Description = "Activates dormant or sleeping entity (enables AI/script execution)." },
+            new EngineBuiltin { Name = "deactivate", Signature = "deactivate(entity)", ReturnType = "void", Category = "Entity", IsSequelOnly = false, Description = "Deactivates entity without removing it from memory." },
+            new EngineBuiltin { Name = "getentity", Signature = "getentity(id)", ReturnType = "entity", Category = "Entity", IsSequelOnly = false, Description = "Resolves entity pointer/handle by object ID." },
+            new EngineBuiltin { Name = "setskin", Signature = "setskin(entity, skinName)", ReturnType = "void", Category = "Entity", IsSequelOnly = false, Description = "Swaps texture skin of entity in real-time." },
+            new EngineBuiltin { Name = "SetModel", Signature = "SetModel(modelName)", ReturnType = "void", Category = "Entity", IsSequelOnly = false, Description = "Replaces entity 3D model mesh with new asset." },
+            new EngineBuiltin { Name = "SetFlag", Signature = "SetFlag(flagBit, entity)", ReturnType = "void", Category = "Entity", IsSequelOnly = false, Description = "Sets internal entity state flag (e.g. FL_ONWATER, FL_NODRAW)." },
+            new EngineBuiltin { Name = "ClearFlag", Signature = "ClearFlag(flagBit, entity)", ReturnType = "void", Category = "Entity", IsSequelOnly = false, Description = "Clears internal entity state flag bit." },
+            new EngineBuiltin { Name = "AttachEntity", Signature = "AttachEntity(child, parent, tagName, linkAngles)", ReturnType = "void", Category = "Attach", IsSequelOnly = false, Description = "Attaches child entity to parent model attachment tag." },
+            new EngineBuiltin { Name = "DetachEntity", Signature = "DetachEntity(child)", ReturnType = "void", Category = "Attach", IsSequelOnly = true, Description = "Detaches child entity from its parent attachment point." },
+            new EngineBuiltin { Name = "AttachActivate", Signature = "AttachActivate(tagName)", ReturnType = "void", Category = "Attach", IsSequelOnly = false, Description = "Activates attached sub-entities bound to named tag." },
+            new EngineBuiltin { Name = "AttachDeactivate", Signature = "AttachDeactivate(tagName)", ReturnType = "void", Category = "Attach", IsSequelOnly = false, Description = "Deactivates attached sub-entities bound to named tag." },
+            new EngineBuiltin { Name = "AttachCallback", Signature = "AttachCallback(tagName, msg, p1, p2)", ReturnType = "void", Category = "Attach", IsSequelOnly = false, Description = "Dispatches event callback to all entities attached to named tag." },
+            new EngineBuiltin { Name = "ParentCallback", Signature = "ParentCallback(msg, p1, p2)", ReturnType = "void", Category = "Attach", IsSequelOnly = false, Description = "Sends callback notification upward to parent entity." },
+            new EngineBuiltin { Name = "callback", Signature = "callback(target, msg, p1, p2)", ReturnType = "void", Category = "Attach", IsSequelOnly = false, Description = "Dispatches script callback event directly to target entity." },
+            new EngineBuiltin { Name = "move", Signature = "move(speed)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Translates entity forward along orientation heading at given speed." },
+            new EngineBuiltin { Name = "movex", Signature = "movex(dx)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Translates entity along local/world X axis." },
+            new EngineBuiltin { Name = "movey", Signature = "movey(dy)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Translates entity along local/world Y axis." },
+            new EngineBuiltin { Name = "movez", Signature = "movez(dz)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Translates entity along local/world Z axis." },
+            new EngineBuiltin { Name = "rotate", Signature = "rotate(speed)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Applies continuous rotational angular velocity." },
+            new EngineBuiltin { Name = "rotatex", Signature = "rotatex(deg)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Increments pitch rotation around X axis." },
+            new EngineBuiltin { Name = "rotatey", Signature = "rotatey(deg)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Increments yaw rotation around Y axis." },
+            new EngineBuiltin { Name = "rotatez", Signature = "rotatez(deg)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Increments roll rotation around Z axis." },
+            new EngineBuiltin { Name = "sleep", Signature = "sleep(seconds)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Latent yield: pauses script execution for specified duration." },
+            new EngineBuiltin { Name = "RotateTo", Signature = "RotateTo(targetVec, speed)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Rotates entity smoothly toward target direction at speed." },
+            new EngineBuiltin { Name = "lRotateTo", Signature = "lRotateTo(targetVec, speed)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Linear straight rotation toward target direction." },
+            new EngineBuiltin { Name = "RotateToClamp", Signature = "RotateToClamp(targetVec, mask, maxAngle, minAngle)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Clamped rotation toward target bounded by min/max limits." },
+            new EngineBuiltin { Name = "lRotateToClamp", Signature = "lRotateToClamp(targetVec, mask, maxAngle, minAngle)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Linear clamped rotation bounded by angle limits." },
+            new EngineBuiltin { Name = "MoveToNextWP", Signature = "MoveToNextWP(orient)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Advances unit along waypoint route toward next waypoint (latent)." },
+            new EngineBuiltin { Name = "lMoveToNextWP", Signature = "lMoveToNextWP(orient)", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Moves unit linearly toward next waypoint along route." },
+            new EngineBuiltin { Name = "RotateToNextWP", Signature = "RotateToNextWP()", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Rotates unit orientation to face next waypoint." },
+            new EngineBuiltin { Name = "lRotateToNextWP", Signature = "lRotateToNextWP()", ReturnType = "void", Category = "Movement", IsSequelOnly = false, Description = "Linear rotational step toward next waypoint." },
+            new EngineBuiltin { Name = "GetWaypointDelay", Signature = "GetWaypointDelay(wpIdx)", ReturnType = "float", Category = "Movement", IsSequelOnly = false, Description = "Returns pause/delay duration configured on waypoint." },
+            new EngineBuiltin { Name = "TerrainHeight", Signature = "TerrainHeight(x, y)", ReturnType = "float", Category = "Environment", IsSequelOnly = false, Description = "Returns terrain elevation at specified (X, Y) coordinates." },
+            new EngineBuiltin { Name = "WaterHeight", Signature = "WaterHeight(x, y)", ReturnType = "float", Category = "Environment", IsSequelOnly = true, Description = "Returns water surface level at specified (X, Y) coordinates." },
+            new EngineBuiltin { Name = "TerraMorph", Signature = "TerraMorph(posVec, radius, depth)", ReturnType = "void", Category = "Environment", IsSequelOnly = true, Description = "Real-time terrain deformation: creates crater or trench at position." },
+            new EngineBuiltin { Name = "Shoot", Signature = "Shoot(weaponName, tagName, dirVec)", ReturnType = "void", Category = "Combat", IsSequelOnly = false, Description = "Fires weapon projectile from tag in specified direction." },
+            new EngineBuiltin { Name = "Damage", Signature = "Damage(target, amount)", ReturnType = "void", Category = "Combat", IsSequelOnly = false, Description = "Deals direct damage to target entity." },
+            new EngineBuiltin { Name = "RadialDamage", Signature = "RadialDamage(posVec, radius, damage)", ReturnType = "void", Category = "Combat", IsSequelOnly = false, Description = "Deals area-of-effect blast damage with distance falloff." },
+            new EngineBuiltin { Name = "RadialDamagePlayer", Signature = "RadialDamagePlayer(posVec, radius, damage)", ReturnType = "void", Category = "Combat", IsSequelOnly = true, Description = "Deals radial shockwave damage tailored specifically to player." },
+            new EngineBuiltin { Name = "PlaceLight", Signature = "PlaceLight(posVec, colorVec, radius)", ReturnType = "void", Category = "FX", IsSequelOnly = false, Description = "Spawns dynamic point light source in 3D world." },
+            new EngineBuiltin { Name = "CameraQuake", Signature = "CameraQuake(intensity)", ReturnType = "void", Category = "FX", IsSequelOnly = false, Description = "Triggers screen-shake camera vibration impact effect." },
+            new EngineBuiltin { Name = "LockTarget", Signature = "LockTarget()", ReturnType = "entity", Category = "Combat", IsSequelOnly = false, Description = "Acquires and locks targeting reticle onto nearest target." },
+            new EngineBuiltin { Name = "IsValidTarget", Signature = "IsValidTarget(target)", ReturnType = "float", Category = "Combat", IsSequelOnly = false, Description = "Returns 1 if target is valid, alive, and in range; 0 otherwise." },
+            new EngineBuiltin { Name = "TraceLine", Signature = "TraceLine(startVec, endVec)", ReturnType = "entity", Category = "Combat", IsSequelOnly = false, Description = "Raycasts line-of-sight and returns first hit entity." },
+            new EngineBuiltin { Name = "TraceLineDamage", Signature = "TraceLineDamage(startVec, endVec, damage)", ReturnType = "void", Category = "Combat", IsSequelOnly = false, Description = "Instant laser/bullet trace dealing beam damage along line." },
+            new EngineBuiltin { Name = "Lightning", Signature = "Lightning(startVec, endVec)", ReturnType = "void", Category = "FX", IsSequelOnly = false, Description = "Spawns electric lightning bolt effect between coordinates." },
+            new EngineBuiltin { Name = "StartSound", Signature = "StartSound(soundName)", ReturnType = "void", Category = "Audio", IsSequelOnly = false, Description = "Plays one-shot sound effect at entity location." },
+            new EngineBuiltin { Name = "StartLoopingSound", Signature = "StartLoopingSound(soundName)", ReturnType = "void", Category = "Audio", IsSequelOnly = false, Description = "Starts continuous looping audio sample on entity." },
+            new EngineBuiltin { Name = "StopLoopingSound", Signature = "StopLoopingSound(soundName)", ReturnType = "void", Category = "Audio", IsSequelOnly = false, Description = "Stops active looping sound effect on entity." },
+            new EngineBuiltin { Name = "RespawnPlayer", Signature = "RespawnPlayer()", ReturnType = "void", Category = "Player", IsSequelOnly = false, Description = "Respawns the player helicopter owning calling entity." },
+            new EngineBuiltin { Name = "EndLevel", Signature = "EndLevel()", ReturnType = "void", Category = "Game", IsSequelOnly = false, Description = "Triggers mission victory sequence and transitions to next level." },
+            new EngineBuiltin { Name = "GameOver", Signature = "GameOver()", ReturnType = "void", Category = "Game", IsSequelOnly = true, Description = "Triggers immediate mission failure / game over sequence." },
+            new EngineBuiltin { Name = "PushPlayer", Signature = "PushPlayer(forceVec)", ReturnType = "void", Category = "Player", IsSequelOnly = false, Description = "Applies impulse force vector pushing player helicopter." },
+            new EngineBuiltin { Name = "G_AddPowerUp", Signature = "G_AddPowerUp(type, count)", ReturnType = "void", Category = "Player", IsSequelOnly = false, Description = "Adds bonus power-up item charges to player inventory." },
+            new EngineBuiltin { Name = "G_UsePowerUp", Signature = "G_UsePowerUp()", ReturnType = "float", Category = "Player", IsSequelOnly = false, Description = "Consumes active player power-up and returns success." },
+            new EngineBuiltin { Name = "G_GetPowerUp", Signature = "G_GetPowerUp()", ReturnType = "float", Category = "Player", IsSequelOnly = false, Description = "Queries currently active power-up type." },
+            new EngineBuiltin { Name = "G_SetPowerUpCount", Signature = "G_SetPowerUpCount(type, count)", ReturnType = "void", Category = "Player", IsSequelOnly = true, Description = "Sets inventory charge count for specified power-up." },
+            new EngineBuiltin { Name = "G_AddMissiles", Signature = "G_AddMissiles(type, count)", ReturnType = "void", Category = "Player", IsSequelOnly = false, Description = "Adds secondary missile ammunition to player inventory." },
+            new EngineBuiltin { Name = "G_UseMissile", Signature = "G_UseMissile()", ReturnType = "float", Category = "Player", IsSequelOnly = false, Description = "Fires currently selected secondary missile weapon." },
+            new EngineBuiltin { Name = "G_GetMissiles", Signature = "G_GetMissiles()", ReturnType = "float", Category = "Player", IsSequelOnly = false, Description = "Queries remaining missile ammunition count." },
+            new EngineBuiltin { Name = "G_GetUpgrade", Signature = "G_GetUpgrade()", ReturnType = "float", Category = "Player", IsSequelOnly = false, Description = "Queries player primary weapon upgrade level (0..4)." },
+            new EngineBuiltin { Name = "G_SetUpgrade", Signature = "G_SetUpgrade(type, level)", ReturnType = "void", Category = "Player", IsSequelOnly = false, Description = "Sets weapon upgrade level directly." },
+            new EngineBuiltin { Name = "ShowTutorialHint", Signature = "ShowTutorialHint(hintIdx)", ReturnType = "void", Category = "UI", IsSequelOnly = false, Description = "Displays radio transmission / tutorial banner hint message." },
+            new EngineBuiltin { Name = "PlayerFreezeHealth", Signature = "PlayerFreezeHealth(freeze)", ReturnType = "void", Category = "Player", IsSequelOnly = false, Description = "Toggles invulnerability / god mode on player helicopter." },
+            new EngineBuiltin { Name = "PlayerDisableAction", Signature = "PlayerDisableAction(disable)", ReturnType = "void", Category = "Player", IsSequelOnly = false, Description = "Freezes player input controls (for cutscenes and scripts)." },
+            new EngineBuiltin { Name = "FreezeHealth", Signature = "FreezeHealth(entity, freeze)", ReturnType = "void", Category = "Entity", IsSequelOnly = false, Description = "Sets target entity invulnerable to damage." },
+            new EngineBuiltin { Name = "IsMultiplayer", Signature = "IsMultiplayer()", ReturnType = "float", Category = "Game", IsSequelOnly = true, Description = "Returns 1 if running in 2-player cooperative mode, 0 for single player." },
+            new EngineBuiltin { Name = "IsPlayerInGame", Signature = "IsPlayerInGame(playerIndex)", ReturnType = "float", Category = "Player", IsSequelOnly = true, Description = "Returns 1 if player 1 or player 2 helicopter is currently active." },
+            new EngineBuiltin { Name = "GetMapPosOfs", Signature = "GetMapPosOfs()", ReturnType = "float", Category = "Environment", IsSequelOnly = true, Description = "Returns current flight path scroll offset along mission track." },
+            new EngineBuiltin { Name = "GetPlayerAccel", Signature = "GetPlayerAccel(axis)", ReturnType = "float", Category = "Player", IsSequelOnly = true, Description = "Queries acceleration vector component of player aircraft." },
+            new EngineBuiltin { Name = "GetPlayersDistance", Signature = "GetPlayersDistance()", ReturnType = "float", Category = "Player", IsSequelOnly = true, Description = "Calculates Euclidean distance to player aircraft or between co-op players." },
+        };
+
+        public static readonly Dictionary<string, EngineBuiltin> ByName =
+            All.ToDictionary(b => b.Name, b => b, StringComparer.OrdinalIgnoreCase);
+
+        public static readonly HashSet<string> SequelOnlyNames =
+            new HashSet<string>(All.Where(b => b.IsSequelOnly).Select(b => b.Name), StringComparer.OrdinalIgnoreCase);
+
+        public static readonly Dictionary<string, string> KnownApiDocs =
+            All.ToDictionary(b => b.Name, b => b.Description, StringComparer.OrdinalIgnoreCase);
+
+        public static EngineBuiltin Find(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return null;
+            ByName.TryGetValue(name, out var b);
+            return b;
+        }
+
+        public static IEnumerable<EngineBuiltin> Filter(string query, int engineFilter, bool sequelOnlyFilter = false)
+        {
+            var res = All.AsEnumerable();
+            if (engineFilter == 1) // Original only
+                res = res.Where(b => !b.IsSequelOnly);
+            else if (engineFilter == 2 || sequelOnlyFilter) // Sequel only
+                res = res.Where(b => b.IsSequelOnly);
+
+            if (!string.IsNullOrWhiteSpace(query))
+            {
+                string q = query.Trim();
+                res = res.Where(b =>
+                    b.Name.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    b.Description.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    b.Category.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    b.Signature.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+            return res;
+        }
+    }
+
     public sealed class ScriptStudioDialog : Form
     {
         private readonly Assets assets;
@@ -1411,36 +1580,14 @@ namespace AirstrikeStudio
         private readonly TextBox infoBox;
         private readonly TextBox objDefBox;
 
-        private static readonly Dictionary<string, string> KnownApiDocs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            { "MoveToNextWP", "Advances unit along its waypoint route toward the next waypoint at given speed." },
-            { "lMoveToNextWP", "Moves unit linearly (straight-line) toward the next waypoint." },
-            { "lRotateToNextWP", "Rotates unit orientation toward the next waypoint at given rotational speed." },
-            { "GetWaypointDelay", "Returns float pause/delay value configured on the current waypoint." },
-            { "TerrainHeight", "Returns terrain mesh height at specified (X, Y) map coordinates." },
-            { "LockTarget", "Acquires and locks onto the player's helicopter." },
-            { "IsValidTarget", "Returns 1 if the currently locked target is alive and in range, 0 otherwise." },
-            { "GetPlayersDistance", "Calculates Euclidean distance from this unit to the player aircraft." },
-            { "create", "Spawns an entity, weapon projectile, sub-unit, or particle effect in the world." },
-            { "G_UseMissile", "Fires a missile or primary weapon projectile from this unit." },
-            { "G_GetMissiles", "Queries remaining missile / projectile ammunition." },
-            { "G_UsePowerUp", "Spawns or triggers bonus power-up / item drop." },
-            { "G_GetPowerUp", "Queries unit's assigned power-up type." },
-            { "G_GetUpgrade", "Queries current weapon upgrade tier." },
-            { "ClearFlag", "Clears an entity state flag (e.g. FL_ONWATER, FL_NODRAW)." },
-            { "SetFlag", "Sets an entity state flag." },
-            { "random", "Generates a pseudorandom float between 0.0 and max." },
-            { "crandom", "Generates a centered pseudorandom float between -1.0 and 1.0." },
-            { "sin", "Calculates sine of angle (in radians)." },
-            { "cos", "Calculates cosine of angle (in radians)." },
-            { "atan2", "Calculates arc tangent of (y, x) in radians." },
-            { "abs", "Returns absolute value of number." },
-            { "min", "Returns minimum of two values." },
-            { "max", "Returns maximum of two values." },
-            { "vec_length", "Returns 3D length of vector (x, y, z)." },
-            { "getentity", "Resolves entity handle or pointer by ID." },
-            { "IsMultiplayer", "Returns 1 if game is running in 2-player cooperative mode, 0 for single player." },
-        };
+        public static Dictionary<string, string> KnownApiDocs => EngineBuiltinCatalog.KnownApiDocs;
+
+        private readonly ComboBox targetEngineCombo = new ComboBox();
+        private readonly TextBox searchApiBox = new TextBox();
+        private readonly ComboBox apiScopeCombo = new ComboBox();
+        private readonly ComboBox apiEngineFilterCombo = new ComboBox();
+        private readonly ListBox autoCompleteList = new ListBox();
+        private readonly ToolTip autoCompleteTip = new ToolTip { InitialDelay = 100, ReshowDelay = 100, AutoPopDelay = 12000 };
 
         public class ScriptItem
         {
@@ -1592,9 +1739,23 @@ namespace AirstrikeStudio
             openExternalToolBtn.Height = 32;
             openExternalToolBtn.Click += (s, e) => LaunchExternalScriptStudio();
 
+            targetEngineCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            targetEngineCombo.Font = new Font("Segoe UI", 9f);
+            targetEngineCombo.Width = 240;
+            targetEngineCombo.Height = 32;
+            targetEngineCombo.Items.Add("Target: Auto-Detect");
+            targetEngineCombo.Items.Add("Target: AirStrike 3D [Original (85 Builtins)]");
+            targetEngineCombo.Items.Add("Target: Sequel / OpenAirStrike [101 Builtins]");
+            targetEngineCombo.SelectedIndex = 0;
+            targetEngineCombo.SelectedIndexChanged += (s, e) =>
+            {
+                CheckScriptCompatibility();
+                PopulateApiList();
+            };
+
             actionsFlow.Controls.AddRange(new Control[]
             {
-                assembleBtn, compileToAsmBtn, assignToUnitBtn, newCloneBtn, exportSourceBtn, exportAsmBtn, sidebarToggleBtn, openExternalToolBtn
+                assembleBtn, compileToAsmBtn, targetEngineCombo, assignToUnitBtn, newCloneBtn, exportSourceBtn, exportAsmBtn, sidebarToggleBtn, openExternalToolBtn
             });
 
             topPanel.Controls.Add(scriptTitleLabel);
@@ -1715,14 +1876,85 @@ namespace AirstrikeStudio
             tabDiff.Controls.Add(diffBox);
 
             var tabFuncs = new TabPage("Engine API & Functions");
+
+            var apiTopPanel = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 34,
+                Padding = new Padding(4),
+                BackColor = Color.FromArgb(243, 244, 246),
+            };
+
+            searchApiBox.Dock = DockStyle.Left;
+            searchApiBox.Width = 220;
+            searchApiBox.Font = new Font("Segoe UI", 9f);
+            searchApiBox.Text = "";
+            var searchLbl = new Label { Text = "Search API:", AutoSize = true, Dock = DockStyle.Left, Padding = new Padding(0, 6, 4, 0), Font = new Font("Segoe UI", 8.5f, FontStyle.Bold) };
+
+            apiScopeCombo.Dock = DockStyle.Left;
+            apiScopeCombo.Width = 240;
+            apiScopeCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            apiScopeCombo.Font = new Font("Segoe UI", 9f);
+            apiScopeCombo.Items.Add("All 101 Engine Builtins (API Reference)");
+            apiScopeCombo.Items.Add("Functions Used in Current Script");
+            apiScopeCombo.SelectedIndex = 0;
+
+            apiEngineFilterCombo.Dock = DockStyle.Left;
+            apiEngineFilterCombo.Width = 220;
+            apiEngineFilterCombo.DropDownStyle = ComboBoxStyle.DropDownList;
+            apiEngineFilterCombo.Font = new Font("Segoe UI", 9f);
+            apiEngineFilterCombo.Items.Add("All Engine Builtins (101)");
+            apiEngineFilterCombo.Items.Add("Original AS3D Only (85)");
+            apiEngineFilterCombo.Items.Add("Sequel Only (16 Builtins)");
+            apiEngineFilterCombo.SelectedIndex = 0;
+
+            var insertApiBtn = new Button
+            {
+                Dock = DockStyle.Right,
+                Text = "Insert Function",
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+            };
+
+            searchApiBox.TextChanged += (s, e) => PopulateApiList();
+            apiScopeCombo.SelectedIndexChanged += (s, e) => PopulateApiList();
+            apiEngineFilterCombo.SelectedIndexChanged += (s, e) => PopulateApiList();
+
+            apiTopPanel.Controls.Add(insertApiBtn);
+            apiTopPanel.Controls.Add(apiEngineFilterCombo);
+            apiTopPanel.Controls.Add(apiScopeCombo);
+            apiTopPanel.Controls.Add(searchApiBox);
+            apiTopPanel.Controls.Add(searchLbl);
+
             funcListView.Dock = DockStyle.Fill;
             funcListView.View = View.Details;
             funcListView.FullRowSelect = true;
             funcListView.GridLines = true;
             funcListView.Columns.Add("Function Name", 160);
-            funcListView.Columns.Add("Calls", 60);
-            funcListView.Columns.Add("Description", 480);
+            funcListView.Columns.Add("Engine Compatibility", 140);
+            funcListView.Columns.Add("Category", 90);
+            funcListView.Columns.Add("Calls", 50);
+            funcListView.Columns.Add("Signature", 230);
+            funcListView.Columns.Add("Description", 400);
+
             tabFuncs.Controls.Add(funcListView);
+            tabFuncs.Controls.Add(apiTopPanel);
+
+            Action insertSelectedApi = () =>
+            {
+                if (funcListView.SelectedItems.Count == 0) return;
+                string fnName = funcListView.SelectedItems[0].Text;
+                var b = EngineBuiltinCatalog.Find(fnName);
+                string snippet = b != null ? b.Name + "()" : fnName + "()";
+                TextBox target = editorTabs.SelectedTab == tabAsm ? asmBox : sourceBox;
+                if (!target.ReadOnly)
+                {
+                    target.Paste(snippet);
+                    target.Focus();
+                }
+            };
+            funcListView.DoubleClick += (s, e) => insertSelectedApi();
+            insertApiBtn.Click += (s, e) => insertSelectedApi();
 
             var tabInfo = new TabPage("String Table & RCSL Info");
             tabInfo.Controls.Add(infoBox);
@@ -1734,6 +1966,211 @@ namespace AirstrikeStudio
             editorTabs.TabPages.AddRange(new[] { tabSource, tabAsm, tabDiff, tabFuncs, tabInfo, tabObj });
 
             var editorContainer = new Panel { Dock = DockStyle.Fill };
+
+            autoCompleteList.Font = new Font("Consolas", 9f);
+            autoCompleteList.Visible = false;
+            autoCompleteList.Width = 420;
+            autoCompleteList.Height = 170;
+            autoCompleteList.IntegralHeight = false;
+            autoCompleteList.BorderStyle = BorderStyle.FixedSingle;
+            autoCompleteList.BackColor = Color.White;
+
+            Action<TextBox, bool> triggerAutocomplete = (box, force) =>
+            {
+                int cursor = box.SelectionStart;
+                if (cursor < 0 || cursor > box.TextLength) { autoCompleteList.Visible = false; return; }
+
+                int start = cursor;
+                while (start > 0 && (char.IsLetterOrDigit(box.Text[start - 1]) || box.Text[start - 1] == '_'))
+                    start--;
+
+                string prefix = box.Text.Substring(start, cursor - start);
+                if (prefix.Length < 2 && !force)
+                {
+                    autoCompleteList.Visible = false;
+                    return;
+                }
+
+                int engFilter = targetEngineCombo.SelectedIndex == 1 ? 1 : 0;
+                var matches = EngineBuiltinCatalog.Filter(prefix, engFilter).ToList();
+                if (matches.Count == 0 && prefix.Length >= 2)
+                {
+                    matches = EngineBuiltinCatalog.Filter(prefix, 0).ToList();
+                }
+
+                if (matches.Count == 0)
+                {
+                    autoCompleteList.Visible = false;
+                    return;
+                }
+
+                autoCompleteList.BeginUpdate();
+                autoCompleteList.Items.Clear();
+                foreach (var m in matches)
+                {
+                    string tag = m.IsSequelOnly ? "[Sequel]" : "[AS3D]";
+                    autoCompleteList.Items.Add(string.Format(CultureInfo.InvariantCulture, "{0,-24} {1,-9} {2}", m.Name, tag, m.Category));
+                }
+                autoCompleteList.EndUpdate();
+                autoCompleteList.SelectedIndex = 0;
+
+                Point pt = box.GetPositionFromCharIndex(start);
+                int posX = Math.Max(10, Math.Min(box.Width - autoCompleteList.Width - 20, pt.X));
+                int posY = Math.Max(10, Math.Min(box.Height - autoCompleteList.Height - 10, pt.Y + 24));
+                autoCompleteList.Location = new Point(posX, posY);
+                autoCompleteList.Visible = true;
+                autoCompleteList.BringToFront();
+
+                if (matches.Count > 0)
+                {
+                    autoCompleteTip.Show(matches[0].TooltipText, editorContainer, posX + autoCompleteList.Width + 5, posY, 5000);
+                }
+            };
+
+            Action<TextBox> commitAutocomplete = box =>
+            {
+                if (!autoCompleteList.Visible || autoCompleteList.SelectedIndex < 0) return;
+                string itemStr = autoCompleteList.SelectedItem.ToString();
+                string fnName = itemStr.Split(' ')[0];
+                var b = EngineBuiltinCatalog.Find(fnName);
+                if (b == null) return;
+
+                int cursor = box.SelectionStart;
+                int start = cursor;
+                while (start > 0 && (char.IsLetterOrDigit(box.Text[start - 1]) || box.Text[start - 1] == '_'))
+                    start--;
+
+                box.Select(start, cursor - start);
+                box.SelectedText = b.Name + "()";
+                box.SelectionStart = start + b.Name.Length + 1;
+                box.SelectionLength = 0;
+
+                autoCompleteList.Visible = false;
+                Point pt = box.GetPositionFromCharIndex(box.SelectionStart);
+                autoCompleteTip.Show(b.Signature + "\r\n" + b.EngineTarget + " | " + b.Description, box, pt.X, pt.Y - 45, 6000);
+            };
+
+            Action<TextBox> checkParamHint = box =>
+            {
+                int cursor = box.SelectionStart;
+                if (cursor <= 0 || cursor > box.TextLength) return;
+                if (box.Text[cursor - 1] == '(')
+                {
+                    int start = cursor - 1;
+                    while (start > 0 && char.IsWhiteSpace(box.Text[start - 1])) start--;
+                    int endName = start;
+                    while (start > 0 && (char.IsLetterOrDigit(box.Text[start - 1]) || box.Text[start - 1] == '_'))
+                        start--;
+                    string fnName = box.Text.Substring(start, endName - start);
+                    var b = EngineBuiltinCatalog.Find(fnName);
+                    if (b != null)
+                    {
+                        Point pt = box.GetPositionFromCharIndex(cursor);
+                        autoCompleteTip.Show("▶ " + b.Signature + "\r\n[" + b.EngineTarget + "] " + b.Description, box, pt.X, Math.Max(0, pt.Y - 45), 7000);
+                    }
+                }
+            };
+
+            Action<TextBox> setupIntellisense = box =>
+            {
+                box.KeyDown += (s, e) =>
+                {
+                    if (autoCompleteList.Visible)
+                    {
+                        if (e.KeyCode == Keys.Down)
+                        {
+                            if (autoCompleteList.SelectedIndex < autoCompleteList.Items.Count - 1)
+                                autoCompleteList.SelectedIndex++;
+                            e.Handled = true;
+                            e.SuppressKeyPress = true;
+                            return;
+                        }
+                        if (e.KeyCode == Keys.Up)
+                        {
+                            if (autoCompleteList.SelectedIndex > 0)
+                                autoCompleteList.SelectedIndex--;
+                            e.Handled = true;
+                            e.SuppressKeyPress = true;
+                            return;
+                        }
+                        if (e.KeyCode == Keys.Enter || e.KeyCode == Keys.Tab)
+                        {
+                            commitAutocomplete(box);
+                            e.Handled = true;
+                            e.SuppressKeyPress = true;
+                            return;
+                        }
+                        if (e.KeyCode == Keys.Escape)
+                        {
+                            autoCompleteList.Visible = false;
+                            autoCompleteTip.Hide(editorContainer);
+                            e.Handled = true;
+                            return;
+                        }
+                    }
+                    else if (e.Control && e.KeyCode == Keys.Space)
+                    {
+                        triggerAutocomplete(box, true);
+                        e.Handled = true;
+                        e.SuppressKeyPress = true;
+                    }
+                };
+
+                box.KeyUp += (s, e) =>
+                {
+                    if (e.KeyCode == Keys.Down || e.KeyCode == Keys.Up || e.KeyCode == Keys.Enter || e.KeyCode == Keys.Tab || e.KeyCode == Keys.Escape)
+                        return;
+
+                    if (char.IsLetterOrDigit((char)e.KeyValue) || e.KeyCode == Keys.Back)
+                    {
+                        triggerAutocomplete(box, false);
+                    }
+                    else if (e.KeyCode == Keys.Left || e.KeyCode == Keys.Right)
+                    {
+                        autoCompleteList.Visible = false;
+                    }
+                };
+
+                box.KeyPress += (s, e) =>
+                {
+                    if (e.KeyChar == '(')
+                    {
+                        BeginInvoke((Action)(() => checkParamHint(box)));
+                    }
+                };
+
+                box.MouseDown += (s, e) =>
+                {
+                    autoCompleteList.Visible = false;
+                };
+            };
+
+            setupIntellisense(sourceBox);
+            setupIntellisense(asmBox);
+
+            autoCompleteList.DoubleClick += (s, e) =>
+            {
+                TextBox active = editorTabs.SelectedTab == tabAsm ? asmBox : sourceBox;
+                commitAutocomplete(active);
+            };
+
+            autoCompleteList.SelectedIndexChanged += (s, e) =>
+            {
+                if (autoCompleteList.SelectedIndex >= 0 && autoCompleteList.SelectedItem != null)
+                {
+                    string itemStr = autoCompleteList.SelectedItem.ToString();
+                    string fnName = itemStr.Split(' ')[0];
+                    var b = EngineBuiltinCatalog.Find(fnName);
+                    if (b != null)
+                    {
+                        Point p = autoCompleteList.Location;
+                        autoCompleteTip.Show(b.TooltipText, editorContainer, p.X + autoCompleteList.Width + 5, p.Y, 5000);
+                    }
+                }
+            };
+
+            editorContainer.Controls.Add(autoCompleteList);
+            autoCompleteList.BringToFront();
 
             var editorFooter = new StatusStrip
             {
@@ -2029,31 +2466,9 @@ namespace AirstrikeStudio
                 sourceBox.Text = currentScr.DecompileToSource();
                 infoBox.Text = currentScr.BuildInfoSummary(fullPath);
 
-                // Populate Functions tab
-                funcListView.Items.Clear();
-                var funcCalls = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-                foreach (var instr in currentScr.Code)
-                {
-                    int op = instr.Item1 & 0xFF;
-                    if (op == 0x1C || op == 0x1D) // CALL or CALLP
-                    {
-                        int fIdx = instr.Item2;
-                        if (fIdx >= 0 && fIdx < currentScr.Funcs.Count)
-                        {
-                            string fName = currentScr.Funcs[fIdx];
-                            funcCalls[fName] = funcCalls.ContainsKey(fName) ? funcCalls[fName] + 1 : 1;
-                        }
-                    }
-                }
-                foreach (var fName in currentScr.Funcs)
-                {
-                    int calls = funcCalls.ContainsKey(fName) ? funcCalls[fName] : 0;
-                    string desc = KnownApiDocs.ContainsKey(fName) ? KnownApiDocs[fName] : "Native engine callback / user function";
-                    var row = new ListViewItem(fName);
-                    row.SubItems.Add(calls.ToString());
-                    row.SubItems.Add(desc);
-                    funcListView.Items.Add(row);
-                }
+                // Populate Engine API tab & check compatibility
+                PopulateApiList();
+                CheckScriptCompatibility();
 
                 // Populate Object definitions tab
                 var defsSummary = new StringBuilder();
@@ -2387,6 +2802,160 @@ namespace AirstrikeStudio
                     LoadScript(ofd.FileName, rel);
                 }
             }
+        }
+
+        private void PopulateApiList()
+        {
+            funcListView.BeginUpdate();
+            funcListView.Items.Clear();
+
+            var funcCalls = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            if (currentScr != null)
+            {
+                foreach (var instr in currentScr.Code)
+                {
+                    int op = instr.Item1 & 0xFF;
+                    if (op == 0x1C || op == 0x1D) // CALL or CALLP
+                    {
+                        int fIdx = instr.Item2;
+                        if (fIdx >= 0 && fIdx < currentScr.Funcs.Count)
+                        {
+                            string fName = currentScr.Funcs[fIdx];
+                            funcCalls[fName] = funcCalls.ContainsKey(fName) ? funcCalls[fName] + 1 : 1;
+                        }
+                    }
+                }
+            }
+
+            string search = searchApiBox != null ? searchApiBox.Text.Trim() : "";
+            int scope = apiScopeCombo != null ? apiScopeCombo.SelectedIndex : 0;
+            int engine = apiEngineFilterCombo != null ? apiEngineFilterCombo.SelectedIndex : 0;
+
+            bool isOriginalTarget = targetEngineCombo != null && (targetEngineCombo.SelectedIndex == 1 ||
+                (targetEngineCombo.SelectedIndex == 0 && IsOriginalGameFolder(assets?.Root)));
+
+            var itemsToShow = new List<Tuple<string, EngineBuiltin, int>>();
+
+            if (scope == 1) // Used in script only
+            {
+                if (currentScr != null)
+                {
+                    foreach (var fn in currentScr.Funcs)
+                    {
+                        var b = EngineBuiltinCatalog.Find(fn);
+                        if (engine == 1 && b != null && b.IsSequelOnly) continue;
+                        if (engine == 2 && (b == null || !b.IsSequelOnly)) continue;
+                        if (!string.IsNullOrEmpty(search))
+                        {
+                            if (fn.IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0 &&
+                                (b == null || (b.Description.IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0 &&
+                                               b.Category.IndexOf(search, StringComparison.OrdinalIgnoreCase) < 0)))
+                                continue;
+                        }
+                        int calls = funcCalls.ContainsKey(fn) ? funcCalls[fn] : 0;
+                        itemsToShow.Add(Tuple.Create(fn, b, calls));
+                    }
+                }
+            }
+            else // All 101 builtins
+            {
+                var builtins = EngineBuiltinCatalog.Filter(search, engine);
+                foreach (var b in builtins)
+                {
+                    int calls = funcCalls.ContainsKey(b.Name) ? funcCalls[b.Name] : 0;
+                    itemsToShow.Add(Tuple.Create(b.Name, b, calls));
+                }
+            }
+
+            foreach (var item in itemsToShow)
+            {
+                string fn = item.Item1;
+                var b = item.Item2;
+                int calls = item.Item3;
+
+                var row = new ListViewItem(fn);
+                string compat = b != null ? (b.IsSequelOnly ? "Sequel [AS2/Gulf]" : "Original [AS3D]") : "User Callback";
+                string category = b != null ? b.Category : "Custom";
+                string sig = b != null ? b.Signature : fn + "(...)";
+                string desc = b != null ? b.Description : "User-defined or callback function";
+
+                row.SubItems.Add(compat);
+                row.SubItems.Add(category);
+                row.SubItems.Add(calls.ToString());
+                row.SubItems.Add(sig);
+                row.SubItems.Add(desc);
+
+                if (b != null && b.IsSequelOnly)
+                {
+                    if (isOriginalTarget && calls > 0)
+                    {
+                        row.ForeColor = Color.DarkRed;
+                        row.BackColor = Color.FromArgb(254, 242, 242);
+                    }
+                    else
+                    {
+                        row.ForeColor = Color.FromArgb(120, 20, 140);
+                    }
+                }
+                else
+                {
+                    row.ForeColor = Color.FromArgb(20, 80, 40);
+                }
+
+                funcListView.Items.Add(row);
+            }
+
+            funcListView.EndUpdate();
+        }
+
+        private void CheckScriptCompatibility()
+        {
+            if (currentScr == null) return;
+            var sequelCalls = new List<string>();
+            foreach (var fn in currentScr.Funcs)
+            {
+                if (EngineBuiltinCatalog.SequelOnlyNames.Contains(fn))
+                    sequelCalls.Add(fn);
+            }
+
+            bool isOriginalTarget = targetEngineCombo != null && (targetEngineCombo.SelectedIndex == 1 ||
+                (targetEngineCombo.SelectedIndex == 0 && IsOriginalGameFolder(assets?.Root)));
+
+            if (sequelCalls.Count > 0)
+            {
+                string callList = string.Join(", ", sequelCalls.Distinct());
+                if (isOriginalTarget)
+                {
+                    scriptStatusLabel.Text = "⚠ Compatibility Warning: Script calls Sequel-only builtins (" + callList + "). Will fail on original AirStrike3D.exe!";
+                    scriptStatusLabel.ForeColor = Color.DarkRed;
+                }
+                else
+                {
+                    scriptStatusLabel.Text = "ℹ Sequel builtins active: " + callList + " (Supported in AS2, Gulf Thunder & OpenAirStrike).";
+                    scriptStatusLabel.ForeColor = Color.FromArgb(112, 26, 117);
+                }
+            }
+            else
+            {
+                scriptStatusLabel.Text = "✔ 100% Compatible with all engines (Original AirStrike 3D, AS2, Gulf & OpenAirStrike).";
+                scriptStatusLabel.ForeColor = Color.FromArgb(22, 101, 52);
+            }
+        }
+
+        public static bool IsOriginalGameFolder(string dataFolder)
+        {
+            if (string.IsNullOrEmpty(dataFolder)) return true;
+            string lower = dataFolder.ToLowerInvariant();
+            if (lower.Contains("gulf") || lower.Contains("airstrike2") || lower.Contains("airstrike 2") || lower.Contains("as3d2") || lower.Contains("airstrike3dii"))
+                return false;
+            try
+            {
+                var parent = Directory.GetParent(dataFolder);
+                if (parent != null && (File.Exists(Path.Combine(parent.FullName, "as3d2.exe")) || File.Exists(Path.Combine(parent.FullName, "AirStrike3D II - Gulf.exe"))))
+                    return false;
+            }
+            catch { }
+            return true;
         }
 
         private void LaunchExternalScriptStudio()

@@ -45,6 +45,7 @@ namespace AirstrikeStudio
         private ToolStripMenuItem menuDropTable;
         private ToolStripMenuItem menuMapChecks;
         private ToolStripMenuItem menuTestMission;
+        private ToolStripMenuItem menuVerifyMap;
         private ToolStripMenuItem menuQuickSave;
         private ToolStripMenuItem menuQuickTest;
 

@@ -686,5 +686,45 @@ routine r20 {
 1. In Script Studio, press **`F5`** (or click **Compile & Save**). The code compiles in milliseconds, performs verification checks, and commits binary `.scr` bytecode to disk.
 2. Switch back to the main map editor.
 3. Press **`F6`** (**▶ Test Mission**).
-4. The editor launches the actual game engine, hot-swapping your mission into Slot 1. Your customized script executes live in authentic hardware OpenGL with active player collisions, AI targeting, and sound effects.
+4. The editor launches the game engine (auto-detecting OpenAirStrike Native or Legacy Original Engine). In OpenAirStrike, the map boots immediately via direct command-line arguments without altering `levels.txt`. In Legacy Direct3D 8 engines, the journal backup preserves original files.
 5. Exit the game to immediately return to the editor with zero file corruption.
+
+---
+
+## 9. Dual-Engine Test Runner, Headless Map Verification & Script Studio IntelliSense (v1.1 + v1.2)
+
+### 9.1 Dual-Engine Test Runner (F6)
+- **OpenAirStrike Native Win64 Engine (`as3d_game.exe`):**
+  - Direct mission launch via command-line flags: `--data "<gameRoot>" --level <N> --god`.
+  - Bypasses game menu screens and boots straight into gameplay.
+  - Zero journal locking or file overwriting on `levels.txt`.
+  - God Mode toggle option for safe in-game unit inspection.
+- **Legacy Direct3D 8 Trilogy Engine (`AirStrike3D.exe`, `as3d2.exe`, `AirStrike3D II - Gulf.exe`):**
+  - Full backward compatibility using safe journaled backup and restore.
+  - Automatic DWM 8/16-bit mitigation and high DPI awareness applied.
+
+### 9.2 Headless Map Integrity Verification (F7)
+- Press **`F7`** in Map Studio or click **`🔍 Verify Map (Headless)…`** in the Test Mission dialog.
+- OpenAirStrike executes in headless simulation mode (60–120 frames at 60 FPS) in under 1 second without opening a 3D window.
+- Audits and verifies:
+  1. Map boundaries and terrain mesh elevation.
+  2. Mission initialization and helicopter spawn definitions.
+  3. Missing script files (`.scr`).
+  4. Missing 3D models (`.3ds`, `.obj`), texture skins, and audio samples.
+  5. Waypoint route continuity and scroll progression.
+
+### 9.3 101-Builtin Engine IntelliSense & Compatibility Linter
+- **101 Complete Built-in Engine Database:**
+  - 85 Original AirStrike 3D functions.
+  - 16 Sequel Extensions (`TerraMorph`, `RadialDamagePlayer`, `WaterHeight`, `DetachEntity`, `GameOver`, `atan2`, `copysign`, `floor`, `floor2`, `fmod`, `G_SetPowerUpCount`, `IsMultiplayer`, `IsPlayerInGame`, `GetMapPosOfs`, `GetPlayerAccel`, `GetPlayersDistance`).
+- **Live Autocomplete (Ctrl+Space):**
+  - Typing an identifier or pressing `Ctrl+Space` displays matching builtins with `[AS3D]` or `[Sequel]` tags.
+  - Pressing `Enter` or `Tab` completes the call and moves the cursor inside `()`.
+- **Live Parameter Hints:**
+  - Typing `(` after any builtin opens a parameter tooltip showing the full signature, return type, category, and description.
+- **Sequel Engine Compatibility Filter & Linter:**
+  - Set target engine to **Auto-Detect**, **AirStrike 3D [Original (85 Builtins)]**, or **Sequel Trilogy [101 Builtins]**.
+  - If a script uses sequel-only functions like `TerraMorph` while targeting original AirStrike 3D, Script Studio displays an instant amber/red compatibility warning banner to prevent engine crashes.
+- **Engine API Reference Tab:**
+  - Search by keyword, filter between all 101 builtins vs functions called in the current script, and filter by engine target.
+  - Double-click any entry to insert the function snippet directly into your code.

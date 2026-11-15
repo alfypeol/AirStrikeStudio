@@ -69,6 +69,7 @@ namespace AirstrikeStudio
             AddMenu(tm, "Check map…", Keys.F5, ValidateMap);
             AddMenu(tm, "Script Studio (.scr editor)…", Keys.F4, () => OpenScriptStudioStandalone());
             AddMenu(tm, "Test mission…", Keys.F6, () => OpenTestMission(this));
+            AddMenu(tm, "Verify map integrity (headless)…", Keys.F7, () => VerifyCurrentMapHeadless(this));
             menu.Items.Add(tm);
 
             var hm = new ToolStripMenuItem("Help");
@@ -373,7 +374,8 @@ namespace AirstrikeStudio
                     viewer.ConnectAssetTools(assets.Root, ChangeWorkspaceAssets, WorkspaceAssetReport);
                     viewer.ConnectTestMission(
                         () => OpenTestMission(viewer),
-                        () => new TestMissionSession(assets.Root).Active);
+                        () => new TestMissionSession(assets.Root).Active,
+                        () => VerifyCurrentMapHeadless(viewer));
                     viewer.ConnectDocumentState(() => dirty);
                     viewer.ConnectRecoveryStatus(() => recoveryStatus);
                     viewer.ConnectNewDocument(() => CreateNewDocument(viewer));

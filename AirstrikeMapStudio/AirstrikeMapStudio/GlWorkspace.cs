@@ -477,12 +477,13 @@ namespace AirstrikeStudio
             // ── Tools ─────────────────────────────────────────
             menuTools = new ToolStripMenuItem("&Tools");
             menuTestMission = new ToolStripMenuItem("&Test Mission (F6)", null, (s, e) => { }, Keys.F6);
+            menuVerifyMap = new ToolStripMenuItem("&Verify Map Integrity [Headless] (F7)", null, (s, e) => { }, Keys.F7);
             var itemScriptStudio = new ToolStripMenuItem("&Script Studio…", null, (s, e) => OpenScriptInspector());
             var itemModelInspector = new ToolStripMenuItem("&Model Inspector…", null, (s, e) => LaunchModelTool());
 
             menuTools.DropDownItems.AddRange(new ToolStripItem[]
             {
-                menuTestMission, new ToolStripSeparator(), itemScriptStudio, itemModelInspector
+                menuTestMission, menuVerifyMap, new ToolStripSeparator(), itemScriptStudio, itemModelInspector
             });
 
             // ── View ──────────────────────────────────────────

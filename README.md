@@ -2,18 +2,39 @@
 
 [![Latest Release](https://img.shields.io/github/v/release/alfypeol/AirStrikeStudio?color=brightgreen&logo=github)](https://github.com/alfypeol/AirStrikeStudio/releases/latest)
 [![Total Downloads](https://img.shields.io/github/downloads/alfypeol/AirStrikeStudio/total?color=blue&logo=github)](https://github.com/alfypeol/AirStrikeStudio/releases)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Target Framework](https://img.shields.io/badge/.NET%20Framework-4.7.2%20%7C%204.8-blue.svg)]()
+[![Engine Support](https://img.shields.io/badge/Engines-OpenAirStrike%20%7C%20Original%20Trilogy-blueviolet.svg?logo=c%2B%2B)](https://github.com/alfypeol/AirStrikeStudio#supported-game-engines)
+[![Headless Verification](https://img.shields.io/badge/Verification-Headless%20Simulation%20(F7)-brightgreen.svg)](https://github.com/alfypeol/AirStrikeStudio#8-headless-map-integrity-verification-f7)
+[![Script Studio](https://img.shields.io/badge/Script%20API-101%20Builtins%20IntelliSense-blue.svg)](https://github.com/alfypeol/AirStrikeStudio#6-script-studio-scr-ide--101-builtin-intellisense)
 [![Platform](https://img.shields.io/badge/platform-Windows%20x86-orange.svg)]()
 [![OpenGL](https://img.shields.io/badge/OpenGL-Hardware%20Accelerated-green.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-**AirStrike 3D Map Studio** is an advanced, high-performance 3D level editor, real-time terrain sculptor, Bézier flight route authoring suite, and script development environment designed specifically for the DivoGames helicopter combat engine:
+**AirStrike 3D Map Studio** is an advanced, high-performance 3D level editor, real-time terrain sculptor, Bézier flight route authoring suite, and script development environment designed for helicopter combat games.
+
+It features **official Dual-Engine architecture**, providing seamless compatibility with both the modern **OpenAirStrike Native Win64 Rebuild** and the classic **DivoGames Trilogy**:
+- **OpenAirStrike** (Native Win64 C++ Engine Rebuild)
 - **AirStrike 3D** (2002)
 - **AirStrike II** (2003)
 - **AirStrike II: Gulf Thunder** (2004)
 
 ![AirStrike 3D Map Studio Interface](docs/images/editor_screenshot.png)
+
+---
+
+## Supported Game Engines
+
+Map Studio offers full dual-engine support with zero configuration required. It automatically detects which engine you are running and tailors test execution, map verification, and scripting APIs accordingly:
+
+| Feature | OpenAirStrike Native Rebuild (`as3d_game.exe`) | Original Trilogy (`AirStrike3D.exe` / `as3d2.exe` / `Gulf`) |
+| :--- | :--- | :--- |
+| **Architecture** | Native 64-bit C++ modern runtime | 32-bit Direct3D 8 classic runtime |
+| **Test Runner (F6)** | **Direct CLI launch** (`--level <N> --god`), skips menus | Journaled `levels.txt` swap with auto-restore |
+| **levels.txt Protection**| **100% untouched** (no file locking or modification) | Safe byte-exact journal backup & restore |
+| **God Mode Option** | Supported via `--god` CLI flag | N/A (Standard gameplay rules) |
+| **Headless Map Audit (F7)**| **Native 60–120 frame simulation** in < 1 second | N/A (Requires manual in-game loading) |
+| **Script Builtins API** | **101 builtins** (Includes all sequel extensions) | 85 builtins (AS3D) / 101 builtins (AS2/Gulf) |
+| **Sequel Functions** | `TerraMorph`, `RadialDamagePlayer`, `WaterHeight`, etc. | Sequels only (Crashes on vanilla AS3D) |
+| **Modern Display** | Widescreen (16:9 / 21:9), High-DPI, 4K+ scaling | 4:3 fixed letterbox (DWM mitigation applied) |
 
 ---
 
@@ -47,16 +68,25 @@
 - **Water Level Presets**: One-click brush targeting matching the map's exact water elevation ($Z = \text{WaterLevel}$) for carving lakes and rivers.
 - **Heightmap Import / Export**: Lossless 8-bit / 16-bit grayscale PNG heightmap interchange with Photoshop, GIMP, Blender, and World Machine.
 
-### 6. Script Studio (.scr) IDE
+### 6. Script Studio (.scr) IDE & 101-Builtin IntelliSense
 - **Lossless Decompiler**: Decompiles binary `.scr` files into clean, readable C-like high-level structured code.
 - **Native C-Compiler**: Edit logic directly with `if/else`, `while`, mathematical functions, and unit triggers; compiles directly to verified RCSL bytecode on `F5`.
-- **Engine API Explorer**: Live searchable catalog of all built-in host functions with signatures, argument counts, and call frequencies.
+- **Complete 101-Builtin Database**: Full API coverage for both original AirStrike 3D (85 functions) and sequel trilogy extensions (16 functions).
+- **IntelliSense Autocomplete (`Ctrl + Space`)**: Suggests matching functions with compatibility tags (`[AS3D]` vs `[Sequel]`) and parameter signatures.
+- **Live Parameter Hints**: Typing `(` opens interactive signature and documentation tooltips.
+- **Compatibility Linter**: Automatically warns when sequel-only builtins (like `TerraMorph` or `RadialDamagePlayer`) are used in scripts intended for original AirStrike 3D.
 
-### 7. One-Click Playtesting (Test Mission — F6)
-- Automatically detects installed AirStrike games, safely hot-swaps your custom map into Slot 1 of `levels.txt`, and launches the game directly into your level.
-- Automatically restores original game files upon exit with zero file corruption risk.
+### 7. Dual-Engine Playtesting (Test Mission — F6)
+- **OpenAirStrike Native Win64**: Direct CLI invocation (`--data "<gameRoot>" --level <N> --god`). Skips in-game menus, loads the test map instantly, and leaves `levels.txt` 100% untouched.
+- **Legacy Game Trilogy**: Full compatibility with `AirStrike3D.exe`, `as3d2.exe`, and `AirStrike3D II - Gulf.exe` via byte-exact journal backup and restore with DWM mitigation.
+- **One-Click God Mode**: Toggleable invulnerability for safe, thorough playtesting of dense enemy layouts and boss phases.
 
-### 8. Bit-Exact Serialization
+### 8. Headless Map Integrity Verification (F7)
+- Powered by OpenAirStrike: Executes an automated 60–120 frame simulation in under 1 second without opening a 3D window.
+- Audits terrain boundaries, player spawn points, and waypoint paths.
+- Flags missing script files, missing 3D models, unmapped texture skins, and missing audio samples with a color-coded diagnostic report.
+
+### 9. Bit-Exact Serialization
 - All reads and writes preserve original object types, link values, scripting references, and unusual waypoint flags bit-for-bit.
 
 ---
@@ -121,9 +151,9 @@ bin\x86\Release\AirstrikeMapStudio.exe --self-test "C:\Path\To\AirStrike"
 | `Ctrl + O` | Open Map (`.hsc`) | `Home` | Reset Camera to Default Angle |
 | `Ctrl + S` | Save Map | `[` / `]` | Rotate Facing $-30^\circ$ / $+30^\circ$ |
 | `F1` | Help & Keyboard Guide | `Alt + Click` | Overlap Chooser / Sample Tile / Ground |
-| `F4` | Mission Settings Dialog | `Ctrl + D` | Interactive Duplicate Stamp |
+| `F4` | Script Studio (.scr editor) | `Ctrl + D` | Interactive Duplicate Stamp |
 | `F5` | Map Checks & Diagnostics | `Del` | Delete Selected Object(s) |
-| `F6` | **Playtest Map (Test Mission)** | `Ctrl + Alt + S` | Open Script Studio IDE |
+| `F6` | **Playtest Map (Dual-Engine Runner)** | `F7` | **Verify Map Integrity (Headless)** |
 
 ---
 
