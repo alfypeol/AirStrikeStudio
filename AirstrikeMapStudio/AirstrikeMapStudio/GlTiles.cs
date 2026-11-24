@@ -142,18 +142,7 @@ namespace AirstrikeStudio
         /// unsupported, so producing anything else silently drops the tile.
         /// </remarks>
         public static uint TileValue(uint old, int sheet, int index, int turn, bool erase)
-        {
-            if (erase)
-                return old & 255;
-
-            if (sheet < 1 || sheet > 255 || index < 0 || index >= 128 || turn < 0 || turn > 3)
-                throw new ArgumentException("Invalid tile selection.");
-
-            return (old & 255)
-                 | ((uint)sheet << 8)
-                 | ((uint)index << 16)
-                 | ((uint)(turn * 3) << 24);
-        }
+            => TilePaintMath.TileValue(old, sheet, index, turn, erase);
 
         // ═════════════════════════════════════════════════════════════════
         // Stroke lifecycle
@@ -194,20 +183,9 @@ namespace AirstrikeStudio
 
         private void StampTileFootprint(int cx, int cy, int size, int turn)
         {
-            int half = (size - 1) / 2;
-            for (int dy = 0; dy < size; dy++)
-            {
-                int py = cy - half + dy;
-                if (py < 0 || py >= map.Height) continue;
-                for (int dx = 0; dx < size; dx++)
-                {
-                    int px = cx - half + dx;
-                    if (px < 0 || px >= map.Width) continue;
-                    int at = py * map.Width + px;
-                    tileDraft[at] = TileValue(tileDraft[at], strokeSheet, strokeIndex, turn, strokeErase);
-                    tileTouched.Add(at);
-                }
-            }
+            TilePaintMath.StampFootprint(
+                tileDraft, map.Width, map.Height,
+                cx, cy, size, strokeSheet, strokeIndex, turn, strokeErase, tileTouched);
         }
 
         private void FloodFillTiles(int startX, int startY)

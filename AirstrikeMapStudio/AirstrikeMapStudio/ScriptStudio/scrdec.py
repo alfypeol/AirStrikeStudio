@@ -31,6 +31,7 @@ def f32(i):
 
 
 class Unstructured(Exception):
+    """Raised when a routine cannot be turned into structured if/while code (hand-patched control flow)."""
     pass
 
 
@@ -72,6 +73,7 @@ def show(e, parent=0):
 
 
 class Dec:
+    """Structuring decompiler for one parsed script: turns routines into nested statement trees."""
     def __init__(self, P):
         self.P = P
         self.n = len(P.code)
@@ -342,6 +344,7 @@ class Dec:
 
 # --------------------------------------------------------------- printing
 def render(body, ind=1):
+    """Render a statement tree (as produced by Dec) to indented C-like text lines."""
     pad = "    " * ind
     lines = []
     for s in body:
@@ -375,6 +378,7 @@ def render(body, ind=1):
 
 
 def decompile_file(data):
+    """Decompile RCSL bytes to a text listing, one block per routine; unstructured routines are marked in comments."""
     P = scrasm.parse_scr(data)
     D = Dec(P)
     res = D.decompile()
@@ -391,6 +395,7 @@ def decompile_file(data):
 
 
 def stats(folder):
+    """Print how many scripts in folder the decompiler can fully structure."""
     total = clean = 0
     reasons = {}
     files = clean_files = 0
@@ -398,7 +403,7 @@ def stats(folder):
         for f in sorted(fn):
             if not f.endswith(".scr"):
                 continue
-            data = open(os.path.join(dp, f), "rb").read()
+            data = scrasm.read_bytes(os.path.join(dp, f))
             text, res = decompile_file(data)
             files += 1
             bad = 0
@@ -420,9 +425,9 @@ if __name__ == "__main__":
     if len(sys.argv) >= 3 and sys.argv[1] == "--stats":
         stats(sys.argv[2])
     elif len(sys.argv) >= 2:
-        text, _ = decompile_file(open(sys.argv[1], "rb").read())
+        text, _ = decompile_file(scrasm.read_bytes(sys.argv[1]))
         if len(sys.argv) > 2:
-            open(sys.argv[2], "w").write(text + "\n")
+            scrasm.write_text(sys.argv[2], text + "\n")
         else:
             print(text)
     else:

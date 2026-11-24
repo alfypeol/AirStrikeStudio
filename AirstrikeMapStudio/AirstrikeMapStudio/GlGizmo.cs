@@ -76,7 +76,7 @@ namespace AirstrikeStudio
 
         private double GetGizmoScale(Point3D center)
         {
-            int vh = Math.Max(1, Math.Min(ClientSize.Height, ClientSize.Width * 3 / 4));
+            int vh = Math.Max(1, ClientSize.Height);
             double a = Heading * Math.PI / 180;
             double p = Pitch * Math.PI / 180;
             var camOffset = new Vector3D(

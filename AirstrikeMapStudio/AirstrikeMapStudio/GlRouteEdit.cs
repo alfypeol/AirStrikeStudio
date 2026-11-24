@@ -121,7 +121,7 @@ namespace AirstrikeStudio
 
             if (ids.Length > 1 && CommitGroup != null)
             {
-                var mapDraft = Map.Load(map.Bytes());
+                var mapDraft = map.Clone();
                 bool any = false;
                 foreach (int i in ids)
                 {
@@ -157,7 +157,7 @@ namespace AirstrikeStudio
 
             if (ids.Length > 1 && CommitGroup != null)
             {
-                var mapDraft = Map.Load(map.Bytes());
+                var mapDraft = map.Clone();
                 bool any = false;
                 foreach (int i in ids)
                 {
@@ -208,7 +208,7 @@ namespace AirstrikeStudio
 
             if (ids.Length > 1 && CommitGroup != null)
             {
-                var mapDraft = Map.Load(map.Bytes());
+                var mapDraft = map.Clone();
                 bool any = false;
 
                 double groupPivotX = ids.Average(i => (double)mapDraft.Objects[i].X);
@@ -317,7 +317,7 @@ namespace AirstrikeStudio
 
             if (ids.Length > 1 && CommitGroup != null)
             {
-                var mapDraft = Map.Load(map.Bytes());
+                var mapDraft = map.Clone();
                 bool any = false;
                 foreach (int i in ids)
                 {
@@ -518,18 +518,27 @@ namespace AirstrikeStudio
 
             if (SelectedObjects.Length > 1)
             {
-                foreach (int idx in SelectedObjects)
+                if (CommitGroup == null) return;
+                var ids = SelectedObjects;
+                var mapDraft = map.Clone();
+                bool any = false;
+                foreach (int idx in ids)
                 {
-                    if (idx >= 0 && idx < map.Objects.Count)
+                    if (idx >= 0 && idx < mapDraft.Objects.Count)
                     {
-                        var obj = map.Objects[idx];
+                        var obj = mapDraft.Objects[idx];
                         if (obj.Route != null && obj.Route.Count > 0)
+                        {
                             obj.Route.Clear();
+                            any = true;
+                        }
                     }
                 }
+                if (!any) return;
                 RouteWaypoint = -1;
+                SyncPlacements(CommitGroup(mapDraft));
+                SetObjectSelection(ids);
                 Changed();
-                NotifySelection();
                 return;
             }
 
@@ -767,7 +776,7 @@ namespace AirstrikeStudio
                         else
                             doc.Height = Math.Max(85, sz.Height + 40);
                     }
-                    catch { }
+                    catch (Exception logEx) { AppLog.Warn(logEx); }
                 };
 
                 grid.SelectedGridItemChanged += (s, e) => autoScaleDocComment();

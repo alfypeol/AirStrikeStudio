@@ -136,8 +136,8 @@ namespace AirstrikeStudio
 
             var transformObjBtn = new Button { Text = "Transform ▾", AutoSize = true, Margin = new Padding(4, 3, 4, 3), Enabled = false };
             var transformObjMenu = new ContextMenuStrip();
-            var menuRotLeft = new ToolStripMenuItem("Rotate Left 30° ([ or R)", null, (s, e) => btnRotateLeft?.PerformClick());
-            var menuRotRight = new ToolStripMenuItem("Rotate Right 30° (] or Shift+R)", null, (s, e) => btnRotateRight?.PerformClick());
+            var menuRotLeft = new ToolStripMenuItem("Rotate Left 30° ([ or Shift+R)", null, (s, e) => btnRotateLeft?.PerformClick());
+            var menuRotRight = new ToolStripMenuItem("Rotate Right 30° (] or R)", null, (s, e) => btnRotateRight?.PerformClick());
             var menuRotGroup = new ToolStripMenuItem("Rotate Group…", null, (s, e) => btnGroupRotate?.PerformClick());
             transformObjMenu.Items.AddRange(new ToolStripItem[] { menuRotLeft, menuRotRight, new ToolStripSeparator(), menuRotGroup });
             transformObjBtn.Click += (s, e) => transformObjMenu.Show(transformObjBtn, 0, transformObjBtn.Height);
@@ -185,10 +185,13 @@ namespace AirstrikeStudio
             };
 
             if (btnReplace != null) btnReplace.Text = "Replace…";
-            if (recentCombo != null) recentCombo.Width = 105;
+            if (recentCombo != null) recentCombo.Width = 150;
             if (chkGridSnap != null) chkGridSnap.Text = "Grid snap";
             if (chkMoveMode != null) chkMoveMode.Text = "Move drag";
             if (chkBoxMode != null) chkBoxMode.Text = "Box select";
+
+            toolbarGizmoCheck = chkGizmo;
+            toolbarGridSnapCheck = chkGridSnap;
 
             source.Controls.Clear();
             if (recentCombo != null) source.Controls.Add(recentCombo);
@@ -231,7 +234,7 @@ namespace AirstrikeStudio
             toolsBtn.Click += (s, e) => toolsMenu.Show(toolsBtn, 0, toolsBtn.Height);
             routeTools.Controls.Add(toolsBtn);
 
-            Preview.SelectionChanged += (s, e) =>
+            Action updateRouteDropdowns = () =>
             {
                 var draft = Preview.SelectedDraft();
                 bool hasRoute = (Preview.SelectedObjects.Length == 1 && draft != null && draft.Route.Count > 0)
@@ -243,6 +246,8 @@ namespace AirstrikeStudio
                 menuExport.Enabled = (Preview.SelectedObjects.Length == 1 && draft != null && draft.Route.Count > 0) && !Preview.PlacementPending;
                 menuImport.Enabled = Preview.SelectedObjects.Length >= 1 && !Preview.PlacementPending;
             };
+            Preview.SelectionChanged += (s, e) => updateRouteDropdowns();
+            updateRouteDropdowns();
 
             routes.Controls.Add(routeTools);
             tabs.TabPages.Add(routes);

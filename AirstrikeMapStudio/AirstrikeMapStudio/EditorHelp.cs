@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 
@@ -181,7 +182,7 @@ Test saved missions in-game..";
                 };
                 btnGithub.Click += (s, e) =>
                 {
-                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/alfypeol/AirStrikeStudio") { UseShellExecute = true }); } catch { }
+                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/alfypeol/AirStrikeStudio") { UseShellExecute = true }); } catch (Exception logEx) { AppLog.Warn(logEx); }
                 };
                 bottomPanel.Controls.Add(btnClose);
                 bottomPanel.Controls.Add(btnGithub);

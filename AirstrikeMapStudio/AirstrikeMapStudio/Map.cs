@@ -227,6 +227,22 @@ namespace AirstrikeStudio
         public uint[] Cells;
         public List<Placement> Objects = new List<Placement>();
 
+        public Map Clone()
+        {
+            var copy = new Map
+            {
+                Width = Width,
+                Height = Height,
+                Types = new List<string>(Types),
+                Drops = new List<string>(Drops),
+                Cells = Cells != null ? (uint[])Cells.Clone() : null,
+                Objects = new List<Placement>(Objects.Count)
+            };
+            foreach (var o in Objects)
+                copy.Objects.Add(o.Clone());
+            return copy;
+        }
+
         private static readonly Encoding Latin = Encoding.GetEncoding(28591);
 
         private static int Count(BinaryReader r, int max)
@@ -418,6 +434,8 @@ namespace AirstrikeStudio
             if (newWidth < MinMapDimension || newWidth > MaxMapWidth ||
                 newHeight < MinMapDimension || newHeight > MaxMapHeight)
                 throw new ArgumentException("New dimensions are outside allowed bounds.");
+            if ((long)newWidth * newHeight > MaxGridCells)
+                throw new ArgumentException("Map is too large.");
 
             if (newWidth == Width && newHeight == Height) return;
 

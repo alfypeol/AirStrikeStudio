@@ -78,14 +78,15 @@ namespace AirstrikeStudio
         }
 
         /// <summary>
-        /// Computes the letterboxed viewport for a client size.
+        /// Computes the full-client viewport for a client size.
         /// </summary>
         public static Viewport ComputeViewport(int clientWidth, int clientHeight)
         {
-            int vw = Math.Min(clientWidth, clientHeight * 4 / 3);
-            int vh = vw * 3 / 4;
-            return new Viewport((clientWidth - vw) / 2, (clientHeight - vh) / 2, vw, vh);
+            return new Viewport(0, 0, Math.Max(0, clientWidth), Math.Max(0, clientHeight));
         }
+
+        public static double ComputeAspect(int clientWidth, int clientHeight) =>
+            clientWidth > 0 && clientHeight > 0 ? (double)clientWidth / clientHeight : Aspect43;
 
         /// <summary>
         /// Builds the world-space camera basis from the orbit parameters.
@@ -132,8 +133,9 @@ namespace AirstrikeStudio
             double ndcX = 2.0 * (x - viewport.Left) / viewport.Width - 1;
             double ndcY = 1 - 2.0 * (y - viewport.Top) / viewport.Height;
 
+            double aspect = ComputeAspect(clientWidth, clientHeight);
             var ray = -basis.Offset
-                    + basis.Right * (ndcX * HalfFovTan * Aspect43)
+                    + basis.Right * (ndcX * HalfFovTan * aspect)
                     + basis.Up    * (ndcY * HalfFovTan);
             ray.Normalize();
 
@@ -160,7 +162,8 @@ namespace AirstrikeStudio
             double depth = Vector3D.DotProduct(delta, -basis.Offset);
             if (depth <= 1) return false;
 
-            double sx = Vector3D.DotProduct(delta, basis.Right) / (depth * HalfFovTan * Aspect43);
+            double aspect = ComputeAspect(clientWidth, clientHeight);
+            double sx = Vector3D.DotProduct(delta, basis.Right) / (depth * HalfFovTan * aspect);
             double sy = Vector3D.DotProduct(delta, basis.Up)    / (depth * HalfFovTan);
 
             var viewport = ComputeViewport(clientWidth, clientHeight);

@@ -172,7 +172,7 @@ namespace AirstrikeStudio
                         return i;
                 }
             }
-            catch { }
+            catch (Exception logEx) { AppLog.Warn(logEx); }
             return -1;
         }
 
@@ -252,7 +252,7 @@ namespace AirstrikeStudio
                 string lockPath = Journal + ".lock";
                 if (File.Exists(lockPath)) File.Delete(lockPath);
             }
-            catch { }
+            catch (Exception logEx) { AppLog.Warn(logEx); }
         }
     }
 
@@ -654,7 +654,7 @@ namespace AirstrikeStudio
                                         refresh();
                                     }));
                                 }
-                                catch { }
+                                catch (Exception logEx) { AppLog.Warn(logEx); }
                             };
                         }
                     }
@@ -711,7 +711,7 @@ namespace AirstrikeStudio
                                     refresh();
                                 }));
                             }
-                            catch { }
+                            catch (Exception logEx) { AppLog.Warn(logEx); }
                         };
                     }
                 }
@@ -954,12 +954,39 @@ namespace AirstrikeStudio
             reportBox.Text = "Running verification simulation… please wait.";
             Application.DoEvents();
 
-            bool passed = TestGameLauncher.RunHeadlessVerification(
-                dataFolder,
-                missionSlot,
-                out string report,
-                customExe,
-                frames: 60);
+            bool passed = false;
+            string report;
+            TestMissionSession tempSession = null;
+            try
+            {
+                if (!string.IsNullOrEmpty(mapPath) && File.Exists(mapPath))
+                {
+                    var probe = new TestMissionSession(dataFolder);
+                    if (!probe.Active)
+                    {
+                        probe.Begin(dataFolder, mapPath, missionSlot, null);
+                        tempSession = probe;
+                    }
+                }
+
+                passed = TestGameLauncher.RunHeadlessVerification(
+                    dataFolder,
+                    missionSlot,
+                    out report,
+                    customExe,
+                    frames: 60);
+            }
+            catch (Exception ex)
+            {
+                report = "Verification setup error: " + ex.Message;
+            }
+            finally
+            {
+                if (tempSession != null)
+                {
+                    try { tempSession.Restore(); } catch (Exception logEx) { AppLog.Warn(logEx); }
+                }
+            }
 
             reportBox.Text = report;
 
@@ -1308,11 +1335,11 @@ namespace AirstrikeStudio
                                 break;
                             }
                         }
-                        catch { }
+                        catch (Exception logEx) { AppLog.Warn(logEx); }
                     }
                 }
             }
-            catch { }
+            catch (Exception logEx) { AppLog.Warn(logEx); }
 
             if (running != null)
             {
@@ -1354,7 +1381,7 @@ namespace AirstrikeStudio
                         }
                     }
                 }
-                catch { }
+                catch (Exception logEx) { AppLog.Warn(logEx); }
             }
 
             var process = Process.Start(info);

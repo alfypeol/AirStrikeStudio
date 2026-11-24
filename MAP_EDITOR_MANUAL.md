@@ -17,6 +17,9 @@
    - [5.3 Routes Tab Submenus (Transform ▾, Route Tools ▾)](#53-routes-tab-submenus)
    - [5.4 Terrain Tab Submenus (Level Presets ▾, Heightmap ▾)](#54-terrain-tab-submenus)
    - [5.5 Precision Dialogs & Inspectors](#55-precision-dialogs--inspectors)
+   - [5.6 Selected Object Inspector Reference](#56-selected-object-inspector-reference)
+   - [5.7 View & Camera and Assets & Export Tabs](#57-view--camera-and-assets--export-tabs)
+   - [5.8 Right Sidebar Tabs (Palette, Objects, Map overview)](#58-right-sidebar-tabs-palette-objects-map-overview)
 6. [Routes & Waypoint Authoring](#6-routes--waypoint-authoring)
 7. [Terrain Sculpting & Heightmaps](#7-terrain-sculpting--heightmaps)
 8. [Tiles & Road Painting](#8-tiles--road-painting)
@@ -42,7 +45,7 @@ AirStrike Map Studio communicates directly with the binary `.hsc` mission format
 
 ## 2. 3D Viewport & Camera Navigation
 
-The 3D workspace renders with an authentic OpenGL fixed-pipeline recreating the game's perspective projection ($60^\circ$ vertical FOV, 4:3 aspect letterboxing).
+The 3D workspace renders with an authentic OpenGL fixed-pipeline recreating the game's perspective projection ($60^\circ$ vertical FOV, full-window widescreen aspect ratio).
 
 | Navigation Action | Mouse / Keyboard Input | Description |
 | :--- | :--- | :--- |
@@ -74,9 +77,7 @@ The editor allows individual object placement, group manipulation, precision coo
 ### Consolidated Objects & Selection Toolbar
 All object actions are consolidated onto a clean single-row toolbar:
 
-```
-[ (Recent obj... ▾ ] | [ Add object… ] [ Replace… ] | [ Duplicate ▾ ] [ Delete ] [ Deselect ] | [ Transform ▾ ] [ Group ▾ ] | [☑ 3D Gizmo] [☐ Grid snap] [☐ Move drag] [☐ Box select]
-```
+![Objects & Selection Toolbar](docs/images/screenshot_objects_toolbar.png)
 
 ---
 
@@ -84,16 +85,7 @@ All object actions are consolidated onto a clean single-row toolbar:
 
 When exactly one object is selected in standard editing mode, an **interactive 3D Transform Gizmo** appears centered at the object's origin.
 
-```
-       ▲ +Y (Green Arrow)
-       │
-   ┌───┼───┐  Rotation Ring (Cyan / Gold)
-  ╱    │    ╲
- ◄─────◆─────► +X (Red Arrow)
-  ╲  Center ╱  (Diamond Handle)
-   └───┼───┘
-       │
-```
+![Interactive 3D Transform Gizmo](docs/images/screenshot_3d_gizmo.png)
 
 ### Gizmo Handles & Behaviors:
 - **Red Arrow ($+X$ Axis)**:
@@ -269,16 +261,94 @@ Accessed via *Edit → Drop-Item Table…*:
 
 ---
 
+### 5.6 Selected Object Inspector Reference
+
+The **Inspector** tab on the right sidebar displays all editable settings and read-only diagnostics for the currently selected placement.
+
+#### Inspector Header & Quick Actions
+- **Title & Summary (`#304 helic2_big` / `X:11 Y:186 • 150° • 0 WP`)**: Shows the placement index in the `.hsc` object list, its object type name, grid coordinates, initial facing, and waypoint count.
+- **Clone**: Arms placement of a duplicate of the selected object (including its route and script override).
+- **Del**: Deletes the selected object(s) (with undo support).
+- **✕ (Deselect)**: Clears the current selection.
+- **Script…**: Opens Script Studio / the `.scr` inspector for the object's effective script.
+- **Model…**: Opens the object's 3D model and attachment tags in `AS3DModelTool`.
+- **+ Add Waypoint Route**: Inserts an initial waypoint on the selected object so you can start authoring a path immediately.
+
+#### Behavior
+- **Drop item** *(Editable)*: Index into the map's drop table (`0 — No map override`, `1 — item_...`, `2 — item_star`, etc.) controlling what pickup is spawned when the object is destroyed. `0 — No map override` keeps the object's default behavior.
+- **Initial facing (°)** *(Editable)*: Spawn rotation in `30°` steps (`Setting6 * 30`). Shown in the 3D viewport preview; runtime scripts or waypoints may rotate the entity after spawn.
+- **Loop route** *(Editable when waypoints exist)*: Controls `.hsc` `Link` behavior — `Once` (`Link = 0`) finishes the route once, while `Repeat` (`Link != 0`) loops it. Displays `No waypoints (inactive)` when the object has no waypoints.
+- **Route caution** *(Read-only)*: Geometric warning if any waypoint or Bezier handle sits ahead of the object's spawn `Y` (`AheadOfSpawn`), which can cause enemies to leave the engine's active encounter area and stop firing.
+
+#### Identity *(Read-only)*
+- **Category**: Editor classification (`Aircraft / Bosses`, `Tanks`, `Turrets & cannons`, `Ships`, `Buildings & structures`, `Flora & nature`, `Pickups`, etc.) used for filtering in **Objects** and **Palette**.
+- **Definition file (.obj)**: Source `.obj` definition file (e.g., `helics.obj`, `tanks.obj`) where the object is defined.
+- **Object type**: Exact `.obj` block name stored in the map's `Types` table (e.g., `helic2_big`).
+
+#### Position
+- **X** *(Editable, 16-bit signed integer)*: Horizontal grid coordinate (`1` unit = `40` world units). Editing here moves **only** the spawn point; use **Transform → Translate** (or **Move waypoints**) to shift the route together with the spawn.
+- **Y** *(Editable, 16-bit signed integer)*: Vertical grid coordinate (`1` unit = `40` world units).
+
+#### Route guidance *(Read-only)*
+- **Attack behavior**: Reminder that waypoints and wait values do not enable attacks on their own — firing is governed by the effective `.scr` script, child attachments, and engine encounter activation.
+- **Initial wait value**: Shows the first waypoint's stored `Value` (wait/delay before departure), or `Not applicable` if the object has no waypoints.
+- **Wait timing evidence**: Explains whether/how the effective script reads `GetWaypointDelay` or waypoint wait values, or `No map waypoints` when none are present.
+
+#### Script
+- **Default script** *(Read-only)*: Default `.scr` path declared in the object's `.obj` definition.
+- **Effective script** *(Read-only)*: Actual script the game will run — **Script override** if non-empty, otherwise **Default script**.
+- **Engine functions called** *(Read-only)*: Builtin functions imported by the effective `.scr` (e.g., `TerrainHeight`, `AttachDeactivate`, `Shoot`, `MoveToNextWP`).
+- **Script file check** *(Read-only)*: Validates the effective `.scr` binary (`Valid RCSL (N instructions, ...)` or missing/invalid warning).
+- **Script override** *(Editable)*: Optional `.scr` path stored directly on this placement in the `.hsc` file. Empty (or `(Use default script)`) uses the `.obj` default; an override takes priority and is preserved if you replace the object type.
+- **Script route support** *(Read-only)*: Indicates whether the effective `.scr` calls waypoint-movement builtins (`MoveToNextWP` / `lMoveToNextWP`) or is stationary/scripted (`No (stationary / non-waypoint)`).
+- **Script source** *(Read-only)*: Shows whether the effective script comes from the `.obj` default or a `Map override (retained when replacing...)`.
+
+---
+
+### 5.7 View & Camera and Assets & Export Tabs
+
+#### View & camera Tab
+- **Mission fog**: Toggles linear mission fog rendering in the 3D viewport on/off.
+- **Route**: Toggles route overlay visibility.
+- **Center X / Y & Camera Presets**: Numeric camera center coordinates and quick framing buttons (**Fit map**, **Focus selection (`Ctrl+F` / `F`)**).
+- **Help (F1)**: Opens the built-in keyboard shortcuts and guide dialog.
+- **Reset view preferences**: Restores saved window size, sidebar width, and route display preferences stored in `editor-preferences.txt`.
+
+#### Assets & export Tab
+- **Test mission…**: Launches the one-click **Test Mission (`F6`)** flow (also accessible from the top-right `Test Mission (F6)` button).
+- **Asset / Script / Map Utilities**: Provides quick access to map diagnostics, asset verification, and export tools.
+
+---
+
+### 5.8 Right Sidebar Tabs (Palette, Objects, Map overview)
+
+- **Inspector**: Shows header actions (`Clone`, `Del`, `✕`, `Script…`, `Model…`) and all properties for the selected object (see Section 5.6).
+- **Palette**: Lists every placeable object definition from `.obj` files and the current map:
+  - Filter by category/file dropdown or type in the debounced search box.
+  - Keyboard shortcuts in search: `Down` jumps to the list, `Enter` arms placement and focuses the 3D view, `Escape` clears the filter.
+- **Objects**: Lists all placed objects on the map with `#index`, type name, and `(X, Y)` coordinates:
+  - Filter by category or search by name, `#123`, or plain `123` index.
+  - Keyboard shortcuts in search: `Down` jumps to the list, `Enter` selects and focuses the first match in 3D, `Escape` clears the filter.
+- **Map overview**: Displays a live minimap of terrain, color-coded objects, and the camera footprint; click to select the nearest object or drag to pan the camera.
+
+---
+
+### Viewport Quick Actions & Snap Grid
+- **Focus Selected (`F` or `Ctrl+F`)**: Centers the camera on the currently selected object.
+- **Right-Click Context Menu**: Right-clicking a **selected** object in the 3D viewport opens a quick-actions menu (**Focus Camera (`F`)**, **Select All of Type**, **Clone / Duplicate (`Ctrl+D`)**, **Open Script…**, **Delete (`Del`)**, **Deselect (`Esc`)**). Right-clicking empty space deselects.
+- **40-Unit Snap Grid Overlay**: Enabling **Grid snap** draws a subtle translucent 40-unit grid around the camera center to visualize exact snap cells.
+
+---
+
 ## 6. Routes & Waypoint Authoring
 
 AirStrike missions rely on cubic Bezier curves for enemy flight paths, ground patrols, naval convoys, and boss movement.
 
 ![Routes & Waypoint Authoring Viewport](docs/images/screenshot_routes.png)
 
-```
-Waypoint A (Handle) ──── Waypoint Center (Point) ──── Waypoint B (Handle)
-    [Cyan Handle]              [White Square]              [Coral Pink Handle]
-```
+- **Waypoint A (Approach Handle):** Cyan handle
+- **Waypoint Center (Point):** White square
+- **Waypoint B (Departure Handle):** Coral pink handle
 
 ### Route Overlay & Display Scopes
 - **Show routes for**:

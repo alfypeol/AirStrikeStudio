@@ -475,7 +475,7 @@ routine r10 {
             {
                 if (Directory.Exists(testRoot))
                 {
-                    try { Directory.Delete(testRoot, true); } catch { }
+                    try { Directory.Delete(testRoot, true); } catch (Exception logEx) { AppLog.Warn(logEx); }
                 }
             }
 
@@ -630,7 +630,7 @@ routine r10 {
                         File.Delete(tempGlPath);
                     }
                 }
-                catch { }
+                catch (Exception logEx) { AppLog.Warn(logEx); }
 
                 string dir = Path.GetDirectoryName(outputFile);
                 if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
@@ -677,7 +677,7 @@ routine r10 {
             {
                 if (Directory.Exists(artifactDir))
                 {
-                    try { File.Copy(file, Path.Combine(artifactDir, name), true); } catch { }
+                    try { File.Copy(file, Path.Combine(artifactDir, name), true); } catch (Exception logEx) { AppLog.Warn(logEx); }
                 }
             };
 
@@ -809,7 +809,7 @@ routine r10 {
                             var prop = doc.GetType().GetProperty("Lines");
                             if (prop != null) prop.SetValue(doc, 4, null);
                         }
-                        catch { }
+                        catch (Exception logEx) { AppLog.Warn(logEx); }
                     };
                     wpDialog.Load += (s, e) => { hint.MaximumSize = new Size(Math.Max(100, wpDialog.ClientSize.Width - 24), 0); scaleDoc(); };
                     wpDialog.Shown += (s, e) => scaleDoc();
@@ -831,6 +831,7 @@ routine r10 {
                 viewer.Preview.BrushRadius = 4;
                 viewer.Preview.BrushStrength = 8;
                 viewer.Preview.SculptTool = 0;
+                viewer.Preview.PreviewSculptHover(viewer.Preview.ClientSize.Width / 3, viewer.Preview.ClientSize.Height / 2);
                 for (int i = 0; i < 15; i++) { viewer.Refresh(); Application.DoEvents(); System.Threading.Thread.Sleep(20); }
                 string terrainShot = Path.Combine(outputDir, "screenshot_terrain.png");
                 SaveCompositeScreenshot(viewer, terrainShot);
@@ -967,7 +968,7 @@ routine r10 {
                 try
                 {
                     Assets scrAssets = new Assets();
-                    try { scrAssets.Open(dataRoot); } catch { }
+                    try { scrAssets.Open(dataRoot); } catch (Exception logEx) { AppLog.Warn(logEx); }
                     using (var sDlg = new ScriptStudioDialog(scrAssets, viewer.Preview, null, null))
                     {
                         sDlg.StartPosition = FormStartPosition.Manual;

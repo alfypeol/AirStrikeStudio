@@ -108,110 +108,15 @@ namespace AirstrikeStudio
         /// radius is part of the scale.
         /// </remarks>
         public static double BrushWeight(double distance, double radius, double softness)
-        {
-            if (distance >= radius) return 0;
-            if (softness <= 0) return 1;
-            return Math.Min(1, Math.Max(0, (radius - distance) / (radius * softness)));
-        }
+            => TerrainSculptMath.BrushWeight(distance, radius, softness);
 
-        /// <summary>
-        /// Applies one brush sample at grid position (x, y) over the given
-        /// original/draft cell arrays.
-        /// </summary>
-        /// <remarks>
-        /// Grid space (0..width, 0..height) maps to sample space
-        /// (0..width-1, 0..height-1) via <c>gx = ix * width / (width-1)</c>.
-        /// This is what aligns the brush with the map edges; using the raw
-        /// index here makes the brush drift near the boundary.
-        ///
-        /// For each cell inside the sample:
-        ///   1. Compute its weight.
-        ///   2. If the cell has already received a higher weight this stroke,
-        ///      skip it (this is the "monotone within stroke" invariant —
-        ///      dragging back and forth does not double-apply).
-        ///   3. Otherwise, compute the height delta for this tool and apply it.
-        ///
-        /// The update is: <c>newValue = original + round(delta * weight)</c>,
-        /// clamped to [0, 255]. Only the low 8 bits of each cell are touched;
-        /// the tile bits (high 24) are preserved.
-        /// </remarks>
         public static void SculptToolSample(
             uint[] original, uint[] draft, double[] weights,
             int width, int height,
             double x, double y,
             double radius, int amount,
             int tool, int target, double softness)
-        {
-            if (double.IsNaN(softness) || softness < 0 || softness > 1)
-                throw new ArgumentException("Invalid brush softness.");
-            if (radius <= 0
-                || original.Length != width * height
-                || draft.Length != original.Length
-                || weights.Length != original.Length)
-                throw new ArgumentException("Invalid brush geometry.");
-
-            int iyMin = Math.Max(0, (int)Math.Floor((y - radius) * (height - 1) / height));
-            int iyMax = Math.Min(height - 1, (int)Math.Ceiling((y + radius) * (height - 1) / height));
-            int ixMin = Math.Max(0, (int)Math.Floor((x - radius) * (width - 1) / width));
-            int ixMax = Math.Min(width - 1, (int)Math.Ceiling((x + radius) * (width - 1) / width));
-
-            for (int iy = iyMin; iy <= iyMax; iy++)
-            {
-                for (int ix = ixMin; ix <= ixMax; ix++)
-                {
-                    double gx = width  == 1 ? 0 : ix * width  / (double)(width  - 1);
-                    double gy = height == 1 ? 0 : iy * height / (double)(height - 1);
-                    double distance = Math.Sqrt((gx - x) * (gx - x) + (gy - y) * (gy - y));
-                    double weight = BrushWeight(distance, radius, softness);
-
-                    int at = iy * width + ix;
-                    if (weight <= weights[at]) continue; // already covered this stroke at higher weight
-                    weights[at] = weight;
-
-                    double delta = amount;
-                    if (tool == 3)
-                    {
-                        // Noise / roughen: deterministic pseudo-random in [-1, +1]
-                        // seeded by cell coordinates + target (stroke seed).
-                        uint h = (uint)(ix * 374761393 + iy * 668265263 + target * 1442695041);
-                        h = (h ^ (h >> 13)) * 1274126177u;
-                        h ^= h >> 16;
-                        double n = ((h & 0xFFFF) / 32767.5) - 1.0;
-                        delta = Math.Abs(amount) * n;
-                    }
-                    else if (tool != 0)
-                    {
-                        double desired = target;
-                        if (tool == 2)
-                        {
-                            // Smooth: average of the 3×3 neighborhood on the ORIGINAL grid.
-                            double sum = 0;
-                            int count = 0;
-                            int syMin = Math.Max(0, iy - 1), syMax = Math.Min(height - 1, iy + 1);
-                            int sxMin = Math.Max(0, ix - 1), sxMax = Math.Min(width  - 1, ix + 1);
-                            for (int sy = syMin; sy <= syMax; sy++)
-                                for (int sx = sxMin; sx <= sxMax; sx++)
-                                {
-                                    sum += original[sy * width + sx] & 0xFF;
-                                    count++;
-                                }
-                            desired = sum / count;
-                        }
-                        // Flatten/smooth: the delta is clamped to ±|amount|.
-                        // This lets low-strength flatten converge over multiple
-                        // strokes rather than stalling at a fixed offset.
-                        double targetDelta = desired - (original[at] & 0xFF);
-                        double limit = Math.Abs(amount);
-                        delta = Math.Max(-limit, Math.Min(limit, targetDelta));
-                    }
-
-                    int value = Math.Max(0, Math.Min(255,
-                        (int)(original[at] & 0xFF) + (int)Math.Round(delta * weight)));
-
-                    draft[at] = (original[at] & 0xFFFFFF00u) | (uint)value;
-                }
-            }
-        }
+            => TerrainSculptMath.SculptToolSample(original, draft, weights, width, height, x, y, radius, amount, tool, target, softness);
 
         /// <summary>Convenience overload: raise/lower, no softness override.</summary>
         public static void SculptSample(
@@ -219,9 +124,7 @@ namespace AirstrikeStudio
             int width, int height,
             double x, double y,
             double radius, int amount)
-        {
-            SculptToolSample(original, draft, weights, width, height, x, y, radius, amount, 0, 0, 1);
-        }
+            => TerrainSculptMath.SculptSample(original, draft, weights, width, height, x, y, radius, amount);
 
         /// <summary>Convenience overload: any tool, default softness.</summary>
         public static void SculptToolSample(
@@ -230,9 +133,7 @@ namespace AirstrikeStudio
             double x, double y,
             double radius, int amount,
             int tool, int target)
-        {
-            SculptToolSample(original, draft, weights, width, height, x, y, radius, amount, tool, target, 1);
-        }
+            => TerrainSculptMath.SculptToolSample(original, draft, weights, width, height, x, y, radius, amount, tool, target);
 
         // ═════════════════════════════════════════════════════════════════
         // Stored height → world height
@@ -286,24 +187,42 @@ namespace AirstrikeStudio
             {
                 int w = map.Width;
                 int h = map.Height;
-                using (var resized = new Bitmap(bmp, new Size(w, h)))
+                Bitmap src = bmp;
+                Bitmap resized = null;
+                try
                 {
+                    if (bmp.Width != w || bmp.Height != h)
+                    {
+                        resized = new Bitmap(bmp, new Size(w, h));
+                        src = resized;
+                    }
+
                     uint[] newCells = (uint[])map.Cells.Clone();
                     for (int y = 0; y < h; y++)
                     {
                         for (int x = 0; x < w; x++)
                         {
-                            Color c = resized.GetPixel(x, y);
-                            byte val = (byte)(0.299 * c.R + 0.587 * c.G + 0.114 * c.B);
+                            Color c = src.GetPixel(x, y);
+                            int lum = (int)Math.Round(0.299 * c.R + 0.587 * c.G + 0.114 * c.B);
+                            byte val = (byte)Math.Max(0, Math.Min(255, lum));
                             int idx = y * w + x;
                             newCells[idx] = (newCells[idx] & ~0xFFu) | val;
                         }
                     }
+
                     if (CommitTerrain != null)
-                        map = CommitTerrain(newCells);
+                        SyncPlacements(CommitTerrain(newCells));
                     else
-                        map.Cells = newCells;
+                    {
+                        var copy = map.Clone();
+                        copy.Cells = newCells;
+                        SyncPlacements(copy);
+                    }
                     Changed();
+                }
+                finally
+                {
+                    resized?.Dispose();
                 }
             }
         }
@@ -318,6 +237,12 @@ namespace AirstrikeStudio
         /// during mouse movement; internally throttled to 10 Hz for the readout
         /// only.
         /// </summary>
+        internal void PreviewSculptHover(int x, int y)
+        {
+            lastHeightReadout = -1000;
+            HoverSculpt(x, y);
+        }
+
         private void HoverSculpt(int x, int y)
         {
             sculptHover = GroundAt(x, y, out Point3D hit);
@@ -572,7 +497,8 @@ namespace AirstrikeStudio
 
             map = copy;
             LoadScenery(assetRoot);
-            SelectedIndex = previouslySelected;
+            selectionState.SetSelection(previouslySelected >= 0 ? new[] { previouslySelected } : null, map.Objects.Count);
+            pickIndex.Invalidate();
 
             if (glContext != IntPtr.Zero)
             {

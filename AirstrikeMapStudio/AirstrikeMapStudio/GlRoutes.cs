@@ -31,7 +31,6 @@ namespace AirstrikeStudio
         // --- ROUTE PREVIEW ANIMATION ---
         public bool PreviewRoute = false;
         private double routeAnimTime = 0;
-        private Timer routeTimer;
         // -------------------------------
 
         private readonly Dictionary<int, List<Point3D[]>> contextRoutes =
@@ -203,8 +202,7 @@ namespace AirstrikeStudio
             return result.ToArray();
         }
 
-        private static bool RouteFinite(double v) =>
-            !double.IsNaN(v) && !double.IsInfinity(v) && Math.Abs(v) < 1e7;
+        private static bool RouteFinite(double v) => RouteMath.IsFinite(v);
 
         private double RouteZ(double x, double y)
         {
@@ -233,22 +231,10 @@ namespace AirstrikeStudio
                 return 0;
 
             double tx = x - ix, ty = y - iy;
-            return ty <= tx
-                ? a + (b - a) * tx + (d - b) * ty
-                : a + (d - c) * tx + (c - a) * ty;
+            return RouteMath.InterpolateSurfaceZ(a, b, c, d, tx, ty);
         }
 
-        private static int RouteSamples(Waypoint a, Waypoint b)
-        {
-            double length =
-                Math.Sqrt(Math.Pow(a.BX - a.X, 2) + Math.Pow(a.BY - a.Y, 2)) +
-                Math.Sqrt(Math.Pow(b.AX - a.BX, 2) + Math.Pow(b.AY - a.BY, 2)) +
-                Math.Sqrt(Math.Pow(b.X - b.AX, 2) + Math.Pow(b.Y - b.AY, 2));
-
-            return RouteFinite(length)
-                ? (int)Math.Max(32, Math.Min(512, Math.Ceiling(length * 8)))
-                : 32;
-        }
+        private static int RouteSamples(Waypoint a, Waypoint b) => RouteMath.SegmentSampleCount(a, b);
 
         private bool RouteScreen(double x, double y, out PointF screen, double? height = null)
         {
@@ -277,15 +263,16 @@ namespace AirstrikeStudio
                 -Math.Sin(a) * Math.Sin(p),
                  Math.Cos(p));
 
-            int vw = Math.Min(ClientSize.Width, ClientSize.Height * 4 / 3);
-            int vh = vw * 3 / 4;
+            int vw = Math.Max(1, ClientSize.Width);
+            int vh = Math.Max(1, ClientSize.Height);
+            double aspect = (double)vw / vh;
 
-            double sx = Vector3D.DotProduct(delta, right) / (depth * Math.Tan(Math.PI / 6) * 4 / 3);
+            double sx = Vector3D.DotProduct(delta, right) / (depth * Math.Tan(Math.PI / 6) * aspect);
             double sy = Vector3D.DotProduct(delta, up) / (depth * Math.Tan(Math.PI / 6));
 
             screen = new PointF(
-                (float)((ClientSize.Width - vw) / 2 + (sx + 1) * vw / 2),
-                (float)((ClientSize.Height - vh) / 2 + (1 - sy) * vh / 2));
+                (float)((sx + 1) * vw / 2),
+                (float)((1 - sy) * vh / 2));
 
             return Math.Abs(screen.X) < 1e6 && Math.Abs(screen.Y) < 1e6;
         }
@@ -363,11 +350,10 @@ namespace AirstrikeStudio
 
             var p = SelectedIndex < 0 ? null : (routeDrag ? routeDraft : map.Objects[SelectedIndex]);
 
-            int w = ClientSize.Width, h = ClientSize.Height;
-            int clipW = Math.Min(w, h * 4 / 3), clipH = clipW * 3 / 4;
+            int w = Math.Max(1, ClientSize.Width), h = Math.Max(1, ClientSize.Height);
 
             glEnable(GL_SCISSOR_TEST);
-            glScissor((w - clipW) / 2, (h - clipH) / 2, clipW, clipH);
+            glScissor(0, 0, w, h);
             glViewport(0, 0, w, h);
             glMatrixMode(GL_PROJECTION);
             glPushMatrix();
@@ -576,15 +562,16 @@ namespace AirstrikeStudio
                 -Math.Sin(a) * Math.Sin(p),
                  Math.Cos(p));
 
-            int vw = Math.Min(ClientSize.Width, ClientSize.Height * 4 / 3);
-            int vh = vw * 3 / 4;
+            int vw = Math.Max(1, ClientSize.Width);
+            int vh = Math.Max(1, ClientSize.Height);
+            double aspect = (double)vw / vh;
 
-            double sx = Vector3D.DotProduct(delta, right) / (depth * Math.Tan(Math.PI / 6) * 4 / 3);
+            double sx = Vector3D.DotProduct(delta, right) / (depth * Math.Tan(Math.PI / 6) * aspect);
             double sy = Vector3D.DotProduct(delta, up) / (depth * Math.Tan(Math.PI / 6));
 
             return new PointF(
-                (float)((ClientSize.Width - vw) / 2 + (sx + 1) * vw / 2),
-                (float)((ClientSize.Height - vh) / 2 + (1 - sy) * vh / 2));
+                (float)((sx + 1) * vw / 2),
+                (float)((1 - sy) * vh / 2));
         }
     }
 

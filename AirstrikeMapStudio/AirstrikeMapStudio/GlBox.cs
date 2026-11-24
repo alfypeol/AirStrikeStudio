@@ -69,11 +69,39 @@ namespace AirstrikeStudio
         /// </summary>
         public void SelectBox(Rectangle rectangle, bool toggle)
         {
+            var objectBounds = new Dictionary<int, Rect3D>();
+            foreach (var pair in sceneryIds)
+            {
+                if (!objectBounds.TryGetValue(pair.Value, out var b))
+                    b = pair.Key.Bounds;
+                else
+                    b.Union(pair.Key.Bounds);
+                objectBounds[pair.Value] = b;
+            }
+
             var ids = toggle ? new HashSet<int>(SelectedObjects) : new HashSet<int>();
 
             for (int i = 0; i < map.Objects.Count; i++)
             {
-                if (!ObjectScreen(i, out PointF at)) continue;
+                PointF at;
+                if (objectBounds.TryGetValue(i, out var bounds) && !bounds.IsEmpty)
+                {
+                    var world = new Point3D(
+                        bounds.X + bounds.SizeX / 2,
+                        bounds.Y + bounds.SizeY / 2,
+                        bounds.Z + bounds.SizeZ / 2);
+
+                    if (!GlPickRay.TryProject(
+                            world, ClientSize.Width, ClientSize.Height,
+                            CenterX, CenterY, Heading, Pitch, Distance,
+                            out at))
+                        continue;
+                }
+                else
+                {
+                    if (!ObjectScreen(i, out at)) continue;
+                }
+
                 if (!rectangle.Contains(Point.Round(at))) continue;
 
                 if (!toggle || !ids.Remove(i))
@@ -90,9 +118,6 @@ namespace AirstrikeStudio
         private void DrawSelectionBox()
         {
             if (!boxDragging) return;
-
-            int vw = Math.Min(ClientSize.Width, ClientSize.Height * 4 / 3);
-            int vh = vw * 3 / 4;
 
             // Save 3D state.
             glViewport(0, 0, ClientSize.Width, ClientSize.Height);
@@ -123,7 +148,7 @@ namespace AirstrikeStudio
             glPopMatrix();
             glMatrixMode(GL_MODELVIEW);
             glEnable(GL_DEPTH_TEST);
-            glViewport((ClientSize.Width - vw) / 2, (ClientSize.Height - vh) / 2, vw, vh);
+            glViewport(0, 0, ClientSize.Width, ClientSize.Height);
         }
 
         /// <summary>
@@ -137,39 +162,7 @@ namespace AirstrikeStudio
                     out Point3D origin, out Vector3D ray))
                 return new int[0];
 
-            var hits = new Dictionary<int, double>();
-
-            foreach (var child in scene.Children)
-            {
-                if (child is not GeometryModel3D g) continue;
-                if (!sceneryIds.ContainsKey(g)) continue;
-
-                var mat = g.Material as DiffuseMaterial;
-                var brush = mat?.Brush as System.Windows.Media.ImageBrush;
-
-                // Skip translucent meshes (water at opacity < 0.99).
-                if (brush != null && brush.Opacity < 0.99) continue;
-
-                if (g.Geometry is not MeshGeometry3D mesh) continue;
-
-                for (int i = 0; i < mesh.TriangleIndices.Count; i += 3)
-                {
-                    double hit = RayTriangle(
-                        origin, ray,
-                        mesh.Positions[mesh.TriangleIndices[i]],
-                        mesh.Positions[mesh.TriangleIndices[i + 1]],
-                        mesh.Positions[mesh.TriangleIndices[i + 2]]);
-
-                    if (hit > 1)
-                    {
-                        int id = sceneryIds[g];
-                        if (!hits.ContainsKey(id) || hit < hits[id])
-                            hits[id] = hit;
-                    }
-                }
-            }
-
-            return hits.OrderBy(pair => pair.Value).Select(pair => pair.Key).ToArray();
+            return pickIndex.PickOverlap(scene, sceneryIds, origin, ray);
         }
 
         /// <summary>

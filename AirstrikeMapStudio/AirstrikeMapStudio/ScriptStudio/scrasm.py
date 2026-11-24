@@ -62,7 +62,31 @@ IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 
 
 class AsmError(Exception):
+    """Raised for malformed scripts or assembly text (bad header, unknown operand, name too long...)."""
     pass
+
+def read_bytes(path):
+    """Return the whole file as bytes (the handle is always closed)."""
+    with open(path, "rb") as fh:
+        return fh.read()
+
+
+def read_text(path):
+    """Return the whole file decoded as UTF-8."""
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+def write_bytes(path, data):
+    """Write bytes to a file (the handle is always closed)."""
+    with open(path, "wb") as fh:
+        fh.write(data)
+
+
+def write_text(path, text):
+    """Write UTF-8 text with LF line endings (the handle is always closed)."""
+    with open(path, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(text)
 
 
 # ====================================================================== low level container
@@ -142,6 +166,7 @@ class Parsed:
 
 
 def parse_scr(data):
+    """Parse a compiled RCSL script into a Parsed object (header counts, tables, code, strings). Raises AsmError if it is not an RCSL script."""
     if data[:4] != b"RCSL":
         raise AsmError("not an RCSL script")
     hsz = struct.unpack_from("<I", data, 4)[0]
@@ -204,6 +229,7 @@ def parse_scr(data):
 
 
 def build_scr(P):
+    """Serialise a Parsed object back into RCSL bytes; the inverse of parse_scr."""
     def lenstr(items):
         out = bytearray()
         for it in items:
@@ -239,6 +265,7 @@ def _ident_ok(b):
 
 
 def disassemble(data):
+    """Turn compiled RCSL bytes into lossless assembly text. assemble(disassemble(x)) == x for every valid script."""
     P = parse_scr(data)
     n = len(P.code)
     offs, o = [], 0
@@ -386,6 +413,7 @@ FLOAT_RE = re.compile(r"^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?f$", re.I)
 
 
 def assemble(text, warn=None):
+    """Assemble text produced by disassemble() (or hand-edited) into RCSL bytes. Suspicious-but-legal input is reported through warn(msg); errors raise AsmError."""
     warn = warn if warn is not None else (lambda m: None)
     P = Parsed()
     P.entries = [-1] * 5
@@ -565,11 +593,12 @@ def _tok_int(tok, err, defidx, offs, kind):
 
 # ====================================================================== commands
 def roundtrip(folder, verbose=True):
+    """Check disassemble -> assemble byte-exactness for every RCSL file under folder. Returns (tested, passed, failures)."""
     files = sorted(os.path.join(dp, f) for dp, dn, fn in os.walk(folder) for f in fn)
     tested = passed = 0
     failures = []
     for p in files:
-        d = open(p, "rb").read()
+        d = read_bytes(p)
         if d[:4] != b"RCSL":
             continue
         tested += 1
@@ -590,20 +619,21 @@ def roundtrip(folder, verbose=True):
 
 
 def main(argv):
+    """Command line: scrasm.py dis|asm|roundtrip ...  Returns the process exit code."""
     if len(argv) >= 3 and argv[1] == "dis":
-        text = disassemble(open(argv[2], "rb").read())
+        text = disassemble(read_bytes(argv[2]))
         if len(argv) > 3:
-            open(argv[3], "w", encoding="utf-8", newline="\n").write(text)
+            write_text(argv[3], text)
         else:
             sys.stdout.write(text)
         return 0
     if len(argv) >= 3 and argv[1] == "asm":
         warnings = []
-        data = assemble(open(argv[2], encoding="utf-8").read(), warnings.append)
+        data = assemble(read_text(argv[2]), warnings.append)
         for w in warnings:
             print("warning:", w, file=sys.stderr)
         out = argv[3] if len(argv) > 3 else os.path.splitext(argv[2])[0] + ".scr"
-        open(out, "wb").write(data)
+        write_bytes(out, data)
         print("wrote %s (%d bytes)" % (out, len(data)))
         return 0
     if len(argv) >= 3 and argv[1] == "roundtrip":

@@ -173,23 +173,41 @@ namespace AirstrikeStudio
                     return AircraftHeightFlying;
                 }
 
-                // ── 2. Content & filename inspection for unhashed/edited scripts ──
-                string text = Encoding.ASCII.GetString(bytes);
-                if (Regex.IsMatch(text, @"f5\s*\[\s*2\s*\]\s*=\s*[^;]*TerrainHeight", RegexOptions.IgnoreCase))
+                // ── 2. Bytecode / decompiled init inspection for unhashed/edited scripts ──
+                string text = null;
+                try
+                {
+                    text = ScrFile.Parse(bytes).DecompileToSource();
+                }
+                catch (Exception logEx)
+                {
+                    AppLog.Warn(logEx);
+                    text = Encoding.ASCII.GetString(bytes);
+                }
+
+                // Restrict to the init routine if present so main/damage don't confuse detection.
+                string initBody = text;
+                var initMatch = Regex.Match(text, @"\binit\s*(?:\(\s*\))?\s*\{(?<body>[\s\S]*?)\r?\n\}", RegexOptions.IgnoreCase);
+                if (initMatch.Success)
+                    initBody = initMatch.Groups["body"].Value;
+
+                if (Regex.IsMatch(initBody, @"f5\s*\[\s*2\s*\]\s*=\s*[^;]*TerrainHeight", RegexOptions.IgnoreCase)
+                 || (Regex.IsMatch(initBody, @"TerrainHeight\s*\(", RegexOptions.IgnoreCase)
+                     && Regex.IsMatch(initBody, @"f5\s*\[\s*2\s*\]\s*=", RegexOptions.IgnoreCase)))
                 {
                     note += " Approximate landed start: terrain +7 from script inspection; " +
                             "takeoff not simulated.";
                     return AircraftHeightLanding;
                 }
-                if (Regex.IsMatch(text, @"f5\s*\[\s*2\s*\]\s*=\s*100\b", RegexOptions.IgnoreCase))
+                if (Regex.IsMatch(initBody, @"f5\s*\[\s*2\s*\]\s*=\s*100\b", RegexOptions.IgnoreCase))
                 {
                     note += " Starting pose: world Z 100 from script inspection; " +
                             "flight not simulated.";
                     return AircraftHeightFlying;
                 }
             }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
+            catch (IOException logEx) { AppLog.Warn(logEx); }
+            catch (UnauthorizedAccessException logEx) { AppLog.Warn(logEx); }
 
             // ── 3. Filename heuristic for landed/parked scripts ───────────
             string scriptName = Path.GetFileNameWithoutExtension(script);

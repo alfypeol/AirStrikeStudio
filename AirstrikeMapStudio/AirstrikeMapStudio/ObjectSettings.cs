@@ -375,7 +375,7 @@ namespace AirstrikeStudio
                         }
                     }
                 }
-                catch { }
+                catch (Exception logEx) { AppLog.Warn(logEx); }
             }
 
             var result = new List<string> { "(Use default script)" };

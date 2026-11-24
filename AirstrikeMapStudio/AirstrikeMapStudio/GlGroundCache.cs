@@ -78,8 +78,9 @@ namespace AirstrikeStudio
                 -Math.Sin(a) * Math.Sin(p),
                  Math.Cos(p));
 
+            double aspect = vp.Width > 0 && vp.Height > 0 ? (double)vp.Width / vp.Height : AspectRatio43;
             var dir = forward
-                    + right * (sx * VerticalHalfFovTan * AspectRatio43)
+                    + right * (sx * VerticalHalfFovTan * aspect)
                     + up * (sy * VerticalHalfFovTan);
 
             if (Math.Abs(dir.Z) < 1e-6) return false;
@@ -164,35 +165,7 @@ namespace AirstrikeStudio
         private static bool GroundBox(Point3D origin, Vector3D direction,
                                       Point3D lo, Point3D hi, double limit)
         {
-            double near = 0;
-            double far = limit;
-            return Slab(origin.X, direction.X, lo.X, hi.X, ref near, ref far)
-                && Slab(origin.Y, direction.Y, lo.Y, hi.Y, ref near, ref far)
-                && Slab(origin.Z, direction.Z, lo.Z, hi.Z, ref near, ref far);
-        }
-
-        /// <summary>
-        /// One axis of the slab test. Updates <paramref name="near"/> and
-        /// <paramref name="far"/> to the intersection of the ray with the
-        /// slab [lo, hi] on this axis.
-        /// </summary>
-        private static bool Slab(double origin, double direction,
-                                 double lo, double hi,
-                                 ref double near, ref double far)
-        {
-            const double Epsilon = 1e-8;
-
-            // Ray parallel to this slab: origin must already be within [lo, hi].
-            if (Math.Abs(direction) < 1e-12)
-                return origin >= lo - Epsilon && origin <= hi + Epsilon;
-
-            double a = (lo - origin) / direction;
-            double b = (hi - origin) / direction;
-            if (a > b) { double t = a; a = b; b = t; }
-
-            near = Math.Max(near, a - Epsilon);
-            far = Math.Min(far, b + Epsilon);
-            return near <= far;
+            return ScenePickIndex.RayBox(origin, direction, lo, hi, limit);
         }
     }
 }

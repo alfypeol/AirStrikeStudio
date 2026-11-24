@@ -188,7 +188,7 @@ namespace AirstrikeStudio
             this.mapName = name;
             this.dataFolder = dataFolder;
             this.environmentOverride = environmentOverride;
-            map = Map.Load(source.Bytes());
+            map = source.Clone();
 
             Text = name + " — Legacy terrain preview";
             Width = 1100;

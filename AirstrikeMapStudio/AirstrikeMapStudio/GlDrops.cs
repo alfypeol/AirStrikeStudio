@@ -47,7 +47,7 @@ namespace AirstrikeStudio
     public sealed partial class GlTerrainControl
     {
         /// <summary>Returns a fresh copy of the current map, for the drop dialog.</summary>
-        public Map DropTableDraft() => Map.Load(map.Bytes());
+        public Map DropTableDraft() => map.Clone();
 
         /// <summary>Commits a modified drop table, via <see cref="CommitGroup"/>.</summary>
         public void ApplyDropTable(Map draft)

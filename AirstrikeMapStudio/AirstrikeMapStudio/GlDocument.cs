@@ -30,11 +30,15 @@ namespace AirstrikeStudio
         private Button closeButton;
         private Func<bool, bool> saveDocument;
         private Func<string> documentName, openDocument;
+        private Func<string, bool> openDocumentPath;
+        private string currentDocumentPath;
+        public List<string> RecentMaps = new List<string>();
         private Label documentStatus;
         private string documentNotice = "";
 
         private MenuStrip mainMenuBar;
         private ToolStripMenuItem menuFile;
+        private ToolStripMenuItem menuRecentMaps;
         private ToolStripMenuItem menuEdit;
         private ToolStripMenuItem menuMap;
         private ToolStripMenuItem menuTools;
@@ -146,7 +150,7 @@ namespace AirstrikeStudio
                         typeof(Button).GetMethod("OnClick", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                             ?.Invoke(button, new object[] { EventArgs.Empty });
                     }
-                    catch { }
+                    catch (Exception logEx) { AppLog.Warn(logEx); }
                 };
                 var item = new ToolStripMenuItem(button.Text);
                 item.Click += (s, e) => trigger();
@@ -161,7 +165,6 @@ namespace AirstrikeStudio
         /// </summary>
         public void ConnectDropTable()
         {
-            if (menuDropTable != null) menuDropTable.Click += (s, e) => EditDropTable();
             var button = new Button { Text = "Drop-item table…", AutoSize = true };
             button.Click += (s, e) => EditDropTable();
             AddDocumentTool(button);
@@ -173,15 +176,61 @@ namespace AirstrikeStudio
             RefreshDocumentTitle();
         }
 
+        public void RecordRecentMap(string mapPath)
+        {
+            if (string.IsNullOrWhiteSpace(mapPath)) return;
+            try
+            {
+                string full = Path.GetFullPath(mapPath);
+                RecentMaps.RemoveAll(p => string.Equals(p, full, StringComparison.OrdinalIgnoreCase));
+                RecentMaps.Insert(0, full);
+                if (RecentMaps.Count > 8) RecentMaps.RemoveRange(8, RecentMaps.Count - 8);
+            }
+            catch (Exception logEx) { AppLog.Warn(logEx); }
+        }
+
         /// <summary>
-        /// Wires the four standard document toolbar buttons.
+        /// Wires the four standard document toolbar buttons, recent maps, and drag-and-drop .hsc support.
         /// </summary>
-        public void ConnectDocument(Func<bool, bool> save, Func<string> name, Func<string> open)
+        public void ConnectDocument(Func<bool, bool> save, Func<string> name, Func<string> open, Func<string, bool> openPath = null, string currentPath = null)
         {
             saveDocument = save;
             documentName = name;
             openDocument = open;
+            openDocumentPath = openPath;
+            currentDocumentPath = currentPath;
+            if (!string.IsNullOrEmpty(currentPath) && File.Exists(currentPath))
+                RecordRecentMap(currentPath);
+
             documentPanel.Visible = true;
+
+            AllowDrop = true;
+            Preview.AllowDrop = true;
+            DragEventHandler onDragEnter = (s, e) =>
+            {
+                if (e.Data != null && e.Data.GetDataPresent(DataFormats.FileDrop))
+                {
+                    var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+                    if (files != null && files.Any(f => f.EndsWith(".hsc", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        e.Effect = DragDropEffects.Copy;
+                        return;
+                    }
+                }
+                e.Effect = DragDropEffects.None;
+            };
+            DragEventHandler onDragDrop = (s, e) =>
+            {
+                if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+                var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+                string hsc = files?.FirstOrDefault(f => f.EndsWith(".hsc", StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrEmpty(hsc))
+                    BeginInvoke((Action)(() => OpenDocumentByPath(hsc)));
+            };
+            DragEnter += onDragEnter;
+            DragDrop += onDragDrop;
+            Preview.DragEnter += onDragEnter;
+            Preview.DragDrop += onDragDrop;
 
             foreach (string label in new[] { "Open map…", "Save map", "Save map as…", "Close 3D view" })
             {
@@ -262,6 +311,43 @@ namespace AirstrikeStudio
                     RefreshDocumentTitle();
                     return;
                 }
+                RecordRecentMap(path);
+                NextMapPath = path;
+                Close();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Could not open map");
+            }
+        }
+
+        public void OpenDocumentByPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return;
+            try
+            {
+                Validate();
+                if (!File.Exists(path))
+                {
+                    RecentMaps.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
+                    MessageBox.Show(this, "File not found:\r\n" + path, "Open Map", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+                if (openDocumentPath != null)
+                {
+                    if (!openDocumentPath(path))
+                    {
+                        RefreshDocumentTitle();
+                        return;
+                    }
+                }
+                else
+                {
+                    byte[] bytes = File.ReadAllBytes(path);
+                    if (!bytes.SequenceEqual(Map.Load(bytes).Bytes()))
+                        throw new InvalidDataException("Map does not round-trip exactly.");
+                }
+                RecordRecentMap(path);
                 NextMapPath = path;
                 Close();
             }
@@ -299,7 +385,10 @@ namespace AirstrikeStudio
             // then pressing Delete is the natural gesture.
             if (keyData == Keys.Delete && Preview.Focused && !ValueEditorHasFocus())
             {
-                Preview.DeleteSelected();
+                if (Preview.EditRoute && Preview.RouteWaypoint >= 0)
+                    Preview.DeleteRouteWaypoint();
+                else
+                    Preview.DeleteSelected();
                 return true;
             }
 
@@ -324,6 +413,13 @@ namespace AirstrikeStudio
                 return true;
             }
 
+            if (keyData == Keys.F4 && menuMissionSettings != null)
+            {
+                Validate();
+                menuMissionSettings.PerformClick();
+                return true;
+            }
+
             if (keyData == Keys.F5 && runMapChecks != null)
             {
                 Validate();
@@ -338,9 +434,26 @@ namespace AirstrikeStudio
                 return true;
             }
 
-            if (keyData == (Keys.Control | Keys.T) || keyData == (Keys.Control | Keys.D))
+            if (keyData == Keys.F7 && menuVerifyMap != null)
             {
-                NumericTranslateDialog(keyData == (Keys.Control | Keys.D));
+                Validate();
+                menuVerifyMap.PerformClick();
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.D))
+            {
+                if (!Preview.TerrainMode && !Preview.TileMode && Preview.SelectedIndex >= 0)
+                {
+                    Preview.ArmDuplicate();
+                    Preview.Focus();
+                }
+                return true;
+            }
+
+            if (keyData == (Keys.Control | Keys.T))
+            {
+                NumericTranslateDialog(false);
                 return true;
             }
 
@@ -385,6 +498,15 @@ namespace AirstrikeStudio
             // --- ADD THIS BLOCK ---
             if (!ValueEditorHasFocus())
             {
+                if (keyData == Keys.Home)
+                {
+                    Preview.Pitch = 45;
+                    Preview.Heading = -90;
+                    Preview.Distance = 270 / Math.Sin(Math.PI / 4);
+                    Preview.Invalidate();
+                    return true;
+                }
+
                 if (keyData == (Keys.Control | Keys.Shift | Keys.D))
                 {
                     TriggerDuplicateOffset();
@@ -409,7 +531,7 @@ namespace AirstrikeStudio
                     return true;
                 }
 
-                if (keyData == Keys.F4 || keyData == (Keys.Control | Keys.Shift | Keys.E))
+                if (keyData == (Keys.Control | Keys.Alt | Keys.S) || keyData == (Keys.Control | Keys.Shift | Keys.E))
                 {
                     OpenScriptStudio();
                     return true;

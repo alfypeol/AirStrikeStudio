@@ -47,6 +47,7 @@ IDENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 class SrcError(Exception):
+    """Raised for source text that cannot be parsed or compiled (messages start with "line N" when known)."""
     pass
 
 
@@ -218,6 +219,7 @@ TOKEN = re.compile(r"""
 
 
 def tokenize(text):
+    """Split source text into (kind, text, line) tokens; raises SrcError on an unexpected character."""
     pos, toks, line = 0, [], 1
     while pos < len(text):
         m = TOKEN.match(text, pos)
@@ -234,6 +236,7 @@ def tokenize(text):
 
 
 class Parser:
+    """Recursive-descent parser for the C-like source language; parse() returns the program for the compiler."""
     def __init__(self, text):
         self.t = tokenize(text)
         self.i = 0
@@ -591,16 +594,17 @@ def compile_source(text, warn=None):
 
 
 def roundtrip(folder, verbose=True):
+    """Check decompile -> compile byte-exactness for every RCSL file under folder. Returns (exact, unstructured, bad, total, problems)."""
     files = []
     for dp, dn, fn in os.walk(folder):
         for f in sorted(fn):
             p = os.path.join(dp, f)
-            if open(p, "rb").read(4) == b"RCSL":
+            if scrasm.read_bytes(p)[:4] == b"RCSL":
                 files.append(p)
     exact = unstructured = bad = 0
     problems = []
     for p in sorted(files):
-        data = open(p, "rb").read()
+        data = scrasm.read_bytes(p)
         try:
             src = decompile_to_source(data)
             if src is None:
@@ -624,20 +628,21 @@ def roundtrip(folder, verbose=True):
 
 
 def main(argv):
+    """Command line: scrsrc.py dec|comp|roundtrip ...  Returns the process exit code."""
     if len(argv) >= 3 and argv[1] == "dec":
-        src = decompile_to_source(open(argv[2], "rb").read())
+        src = decompile_to_source(scrasm.read_bytes(argv[2]))
         if src is None:
             print("this script has hand-patched (unstructured) code; use scrasm.py dis instead", file=sys.stderr)
             return 1
         if len(argv) > 3:
-            open(argv[3], "w", encoding="utf-8", newline="\n").write(src + "\n")
+            scrasm.write_text(argv[3], src + "\n")
         else:
             print(src)
         return 0
     if len(argv) >= 3 and argv[1] == "comp":
-        data = compile_source(open(argv[2], encoding="utf-8").read(), lambda m: print("warning:", m, file=sys.stderr))
+        data = compile_source(scrasm.read_text(argv[2]), lambda m: print("warning:", m, file=sys.stderr))
         out = argv[3] if len(argv) > 3 else os.path.splitext(argv[2])[0] + ".scr"
-        open(out, "wb").write(data)
+        scrasm.write_bytes(out, data)
         print("wrote %s (%d bytes)" % (out, len(data)))
         return 0
     if len(argv) >= 3 and argv[1] == "roundtrip":

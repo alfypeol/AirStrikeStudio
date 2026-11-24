@@ -73,8 +73,8 @@ namespace AirstrikeStudio
                 // Cleanup must not hide the original failure, and must not
                 // touch another writer's file.
                 try { if (File.Exists(temp)) File.Delete(temp); }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
+                catch (IOException logEx) { AppLog.Warn(logEx); }
+                catch (UnauthorizedAccessException logEx) { AppLog.Warn(logEx); }
             }
         }
 

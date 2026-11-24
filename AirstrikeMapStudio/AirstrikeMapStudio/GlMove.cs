@@ -85,7 +85,7 @@ namespace AirstrikeStudio
         {
             if (updated == null) return;
 
-            var copy = Map.Load(updated.Bytes());
+            var copy = updated.Clone();
 
             // --- ADD THIS BLOCK ---
             // If the map was resized, the cell arrays no longer match in length.
@@ -139,8 +139,9 @@ namespace AirstrikeStudio
                 int savedSelection = SelectedIndex;
                 ReloadScenery(copy);
                 if (savedSelection >= 0 && savedSelection < copy.Objects.Count)
-                    SelectedIndex = savedSelection;
+                    selectionState.SetSelection(new[] { savedSelection }, copy.Objects.Count);
             }
+            pickIndex.Invalidate();
 
             // ── Path C: in-place vertex transforms for moved objects ─────
             // Every part's mesh is transformed directly (baked) rather than

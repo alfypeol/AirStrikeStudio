@@ -9,6 +9,7 @@
     <RootNamespace>AirstrikeMapStudio</RootNamespace>
     <AssemblyName>AirstrikeMapStudio</AssemblyName>
     <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <LangVersion>9.0</LangVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
@@ -77,6 +78,7 @@
     <Reference Include="WindowsFormsIntegration" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AppLog.cs" />
     <Compile Include="Assembly.cs" />
     <Compile Include="AssemblyTests.cs" />
     <Compile Include="Assets.cs" />
@@ -175,12 +177,21 @@
     <Compile Include="ResizeMapDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="RouteMath.cs" />
     <Compile Include="RouteRotation.cs" />
     <Compile Include="RouteStudy.cs" />
     <Compile Include="ScrCompiler.cs" />
-    <Compile Include="ScrInspector.cs">
+    <Compile Include="EngineBuiltin.cs" />
+    <Compile Include="EngineBuiltinCatalog.cs" />
+    <Compile Include="GlTerrainWindow.ScriptStudio.cs" />
+    <Compile Include="ScenePickIndex.cs" />
+    <Compile Include="ScrFile.cs" />
+    <Compile Include="ScriptStudioDialog.cs">
       <SubType>Form</SubType>
     </Compile>
+    <Compile Include="SelectionState.cs" />
+    <Compile Include="TerrainSculptMath.cs" />
+    <Compile Include="TilePaintMath.cs" />
     <Compile Include="Studio.cs">
       <SubType>Form</SubType>
     </Compile>

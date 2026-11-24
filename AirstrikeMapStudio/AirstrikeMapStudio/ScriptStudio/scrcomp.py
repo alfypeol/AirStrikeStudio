@@ -23,10 +23,12 @@ LEAF = ("f", "var", "glob")
 
 
 class CompileError(Exception):
+    """Raised when a statement tree cannot be compiled to bytecode."""
     pass
 
 
 class Gen:
+    """Code generator: compiles statement trees (from scrdec / scrsrc) into RCSL instructions."""
     def __init__(self, P):
         self.P = P
         self.pool = []          # string table being built: one entry per literal use, in code order

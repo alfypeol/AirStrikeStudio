@@ -33,7 +33,7 @@ namespace AirstrikeStudio
             foreach (int i in ids)
                 ObjectZ(map.Objects[i], map.Objects[i].X + dx, map.Objects[i].Y + dy);
 
-            var draft = Map.Load(map.Bytes());
+            var draft = map.Clone();
             int firstNewIndex = draft.Objects.Count;
 
             foreach (int i in ids)
@@ -58,7 +58,7 @@ namespace AirstrikeStudio
             if (!GroupDestination(ids, dx, dy))
                 throw new ArgumentException("Offset would place an object outside the 16-bit coordinate range (-32768..32767).");
 
-            var draft = Map.Load(map.Bytes());
+            var draft = map.Clone();
             int firstNewIndex = draft.Objects.Count;
 
             foreach (int i in ids)
@@ -87,42 +87,58 @@ namespace AirstrikeStudio
             clipboardSpawnX = p.X;
             clipboardSpawnY = p.Y;
 
+            try { Clipboard.SetText(WaypointCsv.Format(p)); }
+            catch (Exception logEx) { AppLog.Warn(logEx); }
+
             MessageBox.Show("Copied " + p.Route.Count + " waypoints to clipboard.", "Route Copied");
             return true;
         }
 
         public bool PasteRoute()
         {
-            if (routeClipboard == null)
+            if (SelectedObjects.Length != 1 || objectDrag || routeDrag || PlacementPending)
+                return false;
+
+            List<Waypoint> sourceRoute = null;
+            int sourceSpawnX = 0, sourceSpawnY = 0;
+
+            try
             {
-                try
+                if (Clipboard.ContainsText())
                 {
-                    if (Clipboard.ContainsText())
+                    string text = Clipboard.GetText();
+                    if (WaypointCsv.TryParse(text, out var waypoints, out int? sx, out int? sy, out _))
                     {
-                        string text = Clipboard.GetText();
-                        if (WaypointCsv.TryParse(text, out var waypoints, out int? sx, out int? sy, out _))
-                        {
-                            routeClipboard = waypoints;
-                            clipboardSpawnX = sx ?? (waypoints.Count > 0 ? waypoints[0].X : 0);
-                            clipboardSpawnY = sy ?? (waypoints.Count > 0 ? waypoints[0].Y : 0);
-                        }
+                        sourceRoute = waypoints;
+                        sourceSpawnX = sx ?? (waypoints.Count > 0 ? waypoints[0].X : 0);
+                        sourceSpawnY = sy ?? (waypoints.Count > 0 ? waypoints[0].Y : 0);
                     }
                 }
-                catch { }
+            }
+            catch (Exception logEx) { AppLog.Warn(logEx); }
+
+            if (sourceRoute == null && routeClipboard != null)
+            {
+                sourceRoute = routeClipboard;
+                sourceSpawnX = clipboardSpawnX;
+                sourceSpawnY = clipboardSpawnY;
             }
 
-            if (routeClipboard == null || SelectedObjects.Length != 1 || objectDrag || routeDrag || PlacementPending)
+            if (sourceRoute == null || sourceRoute.Count == 0)
+            {
+                MessageBox.Show("No route found in clipboard.\r\nUse Copy Route (Ctrl+Shift+C) or copy a waypoint CSV first.", "Paste Route");
                 return false;
+            }
 
             var p = map.Objects[SelectedIndex];
 
-            int dx = p.X - clipboardSpawnX;
-            int dy = p.Y - clipboardSpawnY;
+            int dx = p.X - sourceSpawnX;
+            int dy = p.Y - sourceSpawnY;
 
             var draft = p.Clone();
             draft.Route.Clear();
 
-            foreach (var w in routeClipboard)
+            foreach (var w in sourceRoute)
             {
                 var newWp = w.Clone();
                 newWp.Shift(dx, dy);

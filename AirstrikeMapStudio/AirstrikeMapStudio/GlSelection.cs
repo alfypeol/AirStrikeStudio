@@ -29,13 +29,10 @@ namespace AirstrikeStudio
 
         private readonly Dictionary<GeometryModel3D, int> sceneryIds =
             new Dictionary<GeometryModel3D, int>();
+        private readonly ScenePickIndex pickIndex = new ScenePickIndex();
+        private readonly SelectionState selectionState = new SelectionState();
 
-        private int selectedIndex = -1;
-        public int SelectedIndex
-        {
-            get => selectedIndex;
-            private set => selectedIndex = value;
-        }
+        public int SelectedIndex => selectionState.SelectedIndex;
 
         public event EventHandler SelectionChanged;
 
@@ -128,6 +125,54 @@ namespace AirstrikeStudio
             }
         }
 
+        public void FocusSelected()
+        {
+            if (SelectedIndex < 0 || SelectedIndex >= map.Objects.Count) return;
+            CenterX = MapWorld.SpawnX(map.Objects[SelectedIndex].X) / 40;
+            CenterY = MapWorld.SpawnY(map.Objects[SelectedIndex].Y) / 40;
+            Invalidate();
+        }
+
+        private void ShowObjectContextMenu(int x, int y)
+        {
+            if (SelectedIndex < 0 || SelectedIndex >= map.Objects.Count) return;
+
+            int selCount = SelectedObjects.Length;
+            string typeName = map.Objects[SelectedIndex].Type >= 0 && map.Objects[SelectedIndex].Type < map.Types.Count
+                ? map.Types[map.Objects[SelectedIndex].Type]
+                : "Object";
+
+            var menu = new ContextMenuStrip();
+            var header = new ToolStripMenuItem(selCount > 1 ? $"{selCount} Objects Selected" : $"#{SelectedIndex} {typeName}")
+            {
+                Enabled = false,
+                Font = new System.Drawing.Font("Segoe UI", 8.5f, System.Drawing.FontStyle.Bold)
+            };
+            menu.Items.Add(header);
+            menu.Items.Add(new ToolStripSeparator());
+
+            menu.Items.Add("Focus Camera (F)", null, (s, e) => FocusSelected());
+            menu.Items.Add("Select All of This Type", null, (s, e) => SelectAllOfType(SelectedIndex));
+            menu.Items.Add(new ToolStripSeparator());
+
+            menu.Items.Add("Interactive Duplicate (Ctrl+D)", null, (s, e) => ArmDuplicate());
+            menu.Items.Add("Clone +2, +2 (Instant)", null, (s, e) => DuplicateOffset(2, 2));
+
+            if (selCount == 1)
+            {
+                menu.Items.Add(new ToolStripSeparator());
+                menu.Items.Add("Rotate Left 30° ([)", null, (s, e) => RotateSelected(-1));
+                menu.Items.Add("Rotate Right 30° (])", null, (s, e) => RotateSelected(1));
+                menu.Items.Add("Add Waypoint to Route", null, (s, e) => AddRouteWaypoint());
+                menu.Items.Add("Open Script in Script Studio…", null, (s, e) => (FindForm() as GlTerrainWindow)?.OpenScriptInspector());
+            }
+
+            menu.Items.Add(new ToolStripSeparator());
+            menu.Items.Add("Delete (Del)", null, (s, e) => DeleteSelected());
+            menu.Items.Add("Deselect (Esc)", null, (s, e) => SetObjectSelection(new int[0]));
+            menu.Show(this, new System.Drawing.Point(x, y));
+        }
+
         public void SelectAt(int x, int y)
         {
             PickGroup(PickAt(x, y), (ModifierKeys & Keys.Control) != 0);
@@ -152,32 +197,7 @@ namespace AirstrikeStudio
                     out Point3D origin, out Vector3D ray))
                 return -1;
 
-            double closest = double.MaxValue;
-            int selected = -1;
-
-            foreach (var child in scene.Children)
-            {
-                if (child is not GeometryModel3D g) continue;
-                if (g.Material is DiffuseMaterial mat && TerrainViewer.IsWater(mat)) continue;
-                if (g.Geometry is not MeshGeometry3D mesh) continue;
-
-                for (int i = 0; i < mesh.TriangleIndices.Count; i += 3)
-                {
-                    double hit = RayTriangle(
-                        origin, ray,
-                        mesh.Positions[mesh.TriangleIndices[i]],
-                        mesh.Positions[mesh.TriangleIndices[i + 1]],
-                        mesh.Positions[mesh.TriangleIndices[i + 2]]);
-
-                    if (hit > 1 && hit < closest)
-                    {
-                        closest = hit;
-                        selected = sceneryIds.TryGetValue(g, out int id) ? id : -1;
-                    }
-                }
-            }
-
-            return selected;
+            return pickIndex.PickClosest(scene, sceneryIds, origin, ray);
         }
 
         /// <summary>

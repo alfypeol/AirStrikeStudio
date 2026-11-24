@@ -23,7 +23,7 @@ namespace AirstrikeStudio
             if (drop.HasValue && (drop < 0 || drop > Math.Min(255, map.Drops.Count)))
                 throw new ArgumentException("Choose an existing drop entry.");
 
-            var draft = Map.Load(map.Bytes());
+            var draft = map.Clone();
 
             foreach (int i in ids)
             {

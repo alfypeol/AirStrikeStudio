@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  script-studio-tests:
+    name: Script Studio (Python) tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Tk and a virtual display
+        run: sudo apt-get update && sudo apt-get install -y python3-tk xvfb
+      - name: Run tests (round trips + GUI smoke test)
+        working-directory: AirstrikeMapStudio/AirstrikeMapStudio/ScriptStudio
+        run: xvfb-run -a python -m unittest discover -s tests -v
+
+  map-studio-build:
+    name: Map Studio (C#) build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build and run tests
+        run: |
+          msbuild AirstrikeMapStudio/AirstrikeMapStudio.slnx /p:Configuration=Release /p:Platform="Any CPU" /restore
+          AirstrikeMapStudio\AirstrikeMapStudio.Tests\bin\Release\AirstrikeMapStudio.Tests.exe

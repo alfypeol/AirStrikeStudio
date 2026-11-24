@@ -7,46 +7,24 @@ namespace AirstrikeStudio
 {
     public sealed partial class GlTerrainControl
     {
-        private readonly HashSet<int> groupSelection = new HashSet<int>();
         private int[] pendingGroup;
 
         public Func<Map, Map> CommitGroup;
 
-        public int[] SelectedObjects =>
-            groupSelection.Count > 0
-                ? groupSelection.OrderBy(i => i).ToArray()
-                : SelectedIndex >= 0
-                    ? new[] { SelectedIndex }
-                    : new int[0];
+        public int[] SelectedObjects => selectionState.SelectedObjects;
 
         public void SetObjectSelection(int[] indices)
         {
-            groupSelection.Clear();
-            foreach (int i in indices)
-                if (i >= 0 && i < map.Objects.Count)
-                    groupSelection.Add(i);
-
-            SelectedIndex = groupSelection.Count == 0 ? -1 : groupSelection.Last();
+            selectionState.SetSelection(indices, map.Objects.Count);
             RouteWaypoint = -1;
             NotifySelection();
         }
 
         private void PickGroup(int index, bool toggle)
         {
-            var ids = SelectedObjects.ToList();
-
-            if (toggle)
-            {
-                if (!ids.Remove(index) && index >= 0)
-                    ids.Add(index);
-            }
-            else
-            {
-                ids.Clear();
-                if (index >= 0) ids.Add(index);
-            }
-
-            SetObjectSelection(ids.ToArray());
+            selectionState.Pick(index, toggle, map.Objects.Count);
+            RouteWaypoint = -1;
+            NotifySelection();
         }
 
         /// <summary>
@@ -57,11 +35,7 @@ namespace AirstrikeStudio
         /// </summary>
         private bool GroupDestination(int[] ids, int dx, int dy)
         {
-            return ids.All(i =>
-                map.Objects[i].X + dx >= short.MinValue
-                && map.Objects[i].Y + dy >= short.MinValue
-                && map.Objects[i].X + dx <= short.MaxValue
-                && map.Objects[i].Y + dy <= short.MaxValue);
+            return SelectionState.CanShiftGroup(map.Objects, ids, dx, dy);
         }
 
         public void MoveGroupTo(int x, int y)
@@ -77,7 +51,7 @@ namespace AirstrikeStudio
             foreach (int i in ids)
                 ObjectZ(map.Objects[i], map.Objects[i].X + dx, map.Objects[i].Y + dy);
 
-            var draft = Map.Load(map.Bytes());
+            var draft = map.Clone();
             foreach (int i in ids)
                 draft.Objects[i].Shift(dx, dy, MoveRoutes);
 
@@ -110,7 +84,7 @@ namespace AirstrikeStudio
                 py + (x - px) * s + (y - py) * c,
             };
 
-            var draft = Map.Load(map.Bytes());
+            var draft = map.Clone();
 
             foreach (int i in ids)
             {
@@ -164,7 +138,7 @@ namespace AirstrikeStudio
                     "There are not enough whole grid cells between the outermost " +
                     "objects. Move the endpoints farther apart first.");
 
-            var draft = Map.Load(map.Bytes());
+            var draft = map.Clone();
 
             for (int n = 0; n < ordered.Length; n++)
             {
@@ -201,7 +175,7 @@ namespace AirstrikeStudio
         private void DeleteGroup()
         {
             var ids = SelectedObjects;
-            var draft = Map.Load(map.Bytes());
+            var draft = map.Clone();
 
             foreach (int i in ids.OrderByDescending(i => i))
                 draft.Objects.RemoveAt(i);
@@ -218,7 +192,7 @@ namespace AirstrikeStudio
 
             if (!GroupDestination(ids, dx, dy)) return;
 
-            var draft = Map.Load(map.Bytes());
+            var draft = map.Clone();
             int first = draft.Objects.Count;
             foreach (int i in ids)
             {

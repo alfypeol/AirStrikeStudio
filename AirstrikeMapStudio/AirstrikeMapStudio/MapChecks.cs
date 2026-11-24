@@ -471,8 +471,7 @@ namespace AirstrikeStudio
             if (index < 0 || index >= map.Objects.Count) return;
 
             CancelPlacement();
-            groupSelection.Clear();
-            SelectedIndex = index;
+            selectionState.SetSelection(new[] { index }, map.Objects.Count);
             RouteRows();
             RouteWaypoint = waypoint >= 0 && waypoint < map.Objects[index].Route.Count ? waypoint : -1;
 

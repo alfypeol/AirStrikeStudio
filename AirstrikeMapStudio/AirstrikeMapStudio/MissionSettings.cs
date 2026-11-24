@@ -751,7 +751,7 @@ namespace AirstrikeStudio
                         break;
                     }
                 }
-                catch { }
+                catch (Exception logEx) { AppLog.Warn(logEx); }
             }
 
             if (missions.Items.Count == 0)

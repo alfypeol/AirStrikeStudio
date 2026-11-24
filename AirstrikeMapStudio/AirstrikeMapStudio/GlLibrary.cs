@@ -55,15 +55,35 @@ namespace AirstrikeStudio
             return System.Text.Encoding.ASCII.GetString(bytes, 12, end - 12);
         }
 
+        private string[] cachedSceneryLibrary;
+        private Map cachedLibraryMap;
+        private int cachedLibraryTypesCount = -1;
+        private int cachedLibraryDefsCount = -1;
+
         public string[] SceneryLibrary()
         {
-            var names = new SortedSet<string>(map.Types, StringComparer.OrdinalIgnoreCase);
             var assets = GetAssets();
+            int typesCount = map?.Types.Count ?? 0;
+            int defsCount = assets.Definitions.Count;
+            if (cachedSceneryLibrary != null
+                && ReferenceEquals(cachedLibraryMap, map)
+                && cachedLibraryTypesCount == typesCount
+                && cachedLibraryDefsCount == defsCount)
+            {
+                return cachedSceneryLibrary;
+            }
+
+            var names = new SortedSet<string>(map.Types, StringComparer.OrdinalIgnoreCase);
             foreach (string name in assets.Definitions.Keys)
                 names.Add(name);
 
             var result = new string[names.Count];
             names.CopyTo(result);
+
+            cachedSceneryLibrary = result;
+            cachedLibraryMap = map;
+            cachedLibraryTypesCount = typesCount;
+            cachedLibraryDefsCount = defsCount;
             return result;
         }
 
@@ -294,8 +314,7 @@ namespace AirstrikeStudio
 
             SyncPlacements(updated);
 
-            groupSelection.Clear();
-            SelectedIndex = map.Objects.Count - 1;
+            selectionState.SetSelection(new[] { map.Objects.Count - 1 }, map.Objects.Count);
             NotifySelection();
         }
 
@@ -325,11 +344,11 @@ namespace AirstrikeStudio
                 return;
             }
 
-            groupSelection.Clear();
-            Map updated = CommitDelete(SelectedIndex);
+            int victim = SelectedIndex;
+            Map updated = CommitDelete(victim);
             CancelPlacement();
             SyncPlacements(updated);
-            SelectedIndex = -1;
+            selectionState.SetSelection(null, map.Objects.Count);
             NotifySelection();
         }
 
@@ -343,7 +362,8 @@ namespace AirstrikeStudio
             SceneryReport.Clear();
 
             map = copy;
-            SelectedIndex = -1;
+            selectionState.SetSelection(null, map.Objects.Count);
+            pickIndex.Invalidate();
             LoadScenery(assetRoot, rebuildTerrainCache: false);
         }
 
@@ -355,20 +375,30 @@ namespace AirstrikeStudio
             if (!assets.Definitions.ContainsKey(name) && !map.Types.Contains(name))
                 throw new ArgumentException("Choose a known object.");
 
-            if (map.Types[map.Objects[SelectedIndex].Type] == name) return;
+            var ids = SelectedObjects;
+            if (ids.Length == 0) return;
+
+            bool allSame = true;
+            foreach (int i in ids)
+            {
+                if (map.Types[map.Objects[i].Type] != name) { allSame = false; break; }
+            }
+            if (allSame) return;
 
             CancelPlacement();
 
-            if (SelectedObjects.Length > 1 && CommitGroup != null)
+            if (ids.Length > 1 && CommitGroup != null)
             {
-                var draft = Map.Load(map.Bytes());
-                foreach (int i in SelectedObjects)
+                var draft = map.Clone();
+                ushort typeId = draft.TypeId(name);
+                foreach (int i in ids)
                 {
-                    draft.Objects[i].Type = draft.TypeId(name);
+                    draft.Objects[i].Type = typeId;
                 }
                 SyncPlacements(CommitGroup(draft));
+                SetObjectSelection(ids);
 
-                MessageBox.Show("Bulk replaced " + SelectedObjects.Length + " objects with " + name, "Replace");
+                MessageBox.Show("Bulk replaced " + ids.Length + " objects with " + name + ".", "Replace");
             }
             else
             {

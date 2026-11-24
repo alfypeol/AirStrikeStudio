@@ -22,6 +22,8 @@ namespace AirstrikeStudio
         private Button headerDeselBtn;
         private Button headerScriptBtn;
         private Button headerModelBtn;
+        private CheckBox toolbarGizmoCheck;
+        private CheckBox toolbarGridSnapCheck;
 
         /// <summary>
         /// Rebuilds the 3D workspace layout: removes the flat toolbar,
@@ -150,7 +152,7 @@ namespace AirstrikeStudio
             };
             workspace.Panel1MinSize = 300;
             workspace.Panel2MinSize = 270;
-            workspace.SplitterDistance = Math.Max(300, workspace.Width - 380);
+            workspace.SplitterDistance = Math.Max(300, workspace.Width - 430);
             workspace.Panel1.Controls.Add(Preview);
             inspector.Dock = DockStyle.Fill;
             workspace.Panel2.Controls.Add(inspector);
@@ -231,9 +233,9 @@ namespace AirstrikeStudio
             selectionHeader.Controls.Add(row1Tools, 1, 1);
 
             var tip = new ToolTip();
-            tip.SetToolTip(headerDupBtn, "Clone / duplicate selected object(s)");
-            tip.SetToolTip(headerDelBtn, "Delete selected object(s)");
-            tip.SetToolTip(headerDeselBtn, "Deselect or cancel current placement");
+            tip.SetToolTip(headerDupBtn, "Clone / duplicate selected object(s) (Ctrl+D)");
+            tip.SetToolTip(headerDelBtn, "Delete selected object(s) (Del)");
+            tip.SetToolTip(headerDeselBtn, "Deselect or cancel current placement (Esc)");
             tip.SetToolTip(headerScriptBtn, "Open script and definition inspector");
             tip.SetToolTip(headerModelBtn, "Open object model in AS3DModelTool");
 
@@ -436,13 +438,43 @@ namespace AirstrikeStudio
             menuFile = new ToolStripMenuItem("&File");
             var itemNew = new ToolStripMenuItem("&New Map…", null, (s, e) => NewDocument(), Keys.Control | Keys.N);
             var itemOpen = new ToolStripMenuItem("&Open Map…", null, (s, e) => OpenDocument(), Keys.Control | Keys.O);
+            menuRecentMaps = new ToolStripMenuItem("Recent &Maps");
             var itemSave = new ToolStripMenuItem("&Save Map", null, (s, e) => SaveDocument(false), Keys.Control | Keys.S);
             var itemSaveAs = new ToolStripMenuItem("Save Map &As…", null, (s, e) => SaveDocument(true), Keys.Control | Keys.Shift | Keys.S);
             var itemClose = new ToolStripMenuItem("&Close 3D View", null, (s, e) => Close(), Keys.Alt | Keys.F4);
 
+            menuFile.DropDownOpening += (s, e) =>
+            {
+                menuRecentMaps.DropDownItems.Clear();
+                if (RecentMaps == null || RecentMaps.Count == 0)
+                {
+                    menuRecentMaps.DropDownItems.Add(new ToolStripMenuItem("(No recent maps)") { Enabled = false });
+                }
+                else
+                {
+                    int n = 1;
+                    foreach (string path in RecentMaps.ToArray())
+                    {
+                        string captured = path;
+                        string fileName = Path.GetFileName(captured);
+                        string dirName = Path.GetDirectoryName(captured) ?? "";
+                        var entry = new ToolStripMenuItem($"&{n}. {fileName}   ({dirName})")
+                        {
+                            ToolTipText = captured
+                        };
+                        entry.Click += (a, b) => OpenDocumentByPath(captured);
+                        menuRecentMaps.DropDownItems.Add(entry);
+                        n++;
+                    }
+                    menuRecentMaps.DropDownItems.Add(new ToolStripSeparator());
+                    var clearItem = new ToolStripMenuItem("&Clear Recent Maps", null, (a, b) => RecentMaps.Clear());
+                    menuRecentMaps.DropDownItems.Add(clearItem);
+                }
+            };
+
             menuFile.DropDownItems.AddRange(new ToolStripItem[]
             {
-                itemNew, itemOpen, new ToolStripSeparator(), itemSave, itemSaveAs, new ToolStripSeparator(), itemClose
+                itemNew, itemOpen, menuRecentMaps, new ToolStripSeparator(), itemSave, itemSaveAs, new ToolStripSeparator(), itemClose
             });
 
             // ── Edit ──────────────────────────────────────────
@@ -478,7 +510,7 @@ namespace AirstrikeStudio
             menuTools = new ToolStripMenuItem("&Tools");
             menuTestMission = new ToolStripMenuItem("&Test Mission (F6)", null, (s, e) => { }, Keys.F6);
             menuVerifyMap = new ToolStripMenuItem("&Verify Map Integrity [Headless] (F7)", null, (s, e) => { }, Keys.F7);
-            var itemScriptStudio = new ToolStripMenuItem("&Script Studio…", null, (s, e) => OpenScriptInspector());
+            var itemScriptStudio = new ToolStripMenuItem("&Script Studio…", null, (s, e) => OpenScriptInspector()) { ShortcutKeyDisplayString = "Ctrl+Alt+S" };
             var itemModelInspector = new ToolStripMenuItem("&Model Inspector…", null, (s, e) => LaunchModelTool());
 
             menuTools.DropDownItems.AddRange(new ToolStripItem[]
@@ -492,14 +524,30 @@ namespace AirstrikeStudio
             var itemFitAll = new ToolStripMenuItem("Fit &Entire Map", null, (s, e) => Preview.FitNavigation(false));
             var itemTopDown = new ToolStripMenuItem("&Top-Down Camera", null, (s, e) => { Preview.Pitch = 85; Preview.Heading = -90; Preview.Invalidate(); });
             var itemResetCam = new ToolStripMenuItem("&Reset Camera Angle", null, (s, e) => { Preview.Pitch = 45; Preview.Heading = -90; Preview.Distance = 270 / Math.Sin(Math.PI / 4); Preview.Invalidate(); }) { ShortcutKeyDisplayString = "Home" };
-            var itemToggleGrid = new ToolStripMenuItem("Toggle &Grid Snap", null, (s, e) => { Preview.GridSnap = !Preview.GridSnap; });
+            var itemToggleGrid = new ToolStripMenuItem("Toggle &Grid Snap", null, (s, e) =>
+            {
+                bool next = !Preview.GridSnap;
+                Preview.GridSnap = next;
+                if (toolbarGridSnapCheck != null && toolbarGridSnapCheck.Checked != next)
+                    toolbarGridSnapCheck.Checked = next;
+                ((ToolStripMenuItem)s).Checked = next;
+                Preview.Invalidate();
+            }) { Checked = Preview.GridSnap };
             var itemToggleRoute = new ToolStripMenuItem("Toggle &Route Display", null, (s, e) => { Preview.SetRouteDisplayScope((Preview.RouteDisplayScope + 1) % 3); });
             var itemToggleGizmo = new ToolStripMenuItem("Show 3D &Transform Gizmo", null, (s, e) =>
             {
-                Preview.ShowGizmo = !Preview.ShowGizmo;
-                ((ToolStripMenuItem)s).Checked = Preview.ShowGizmo;
+                bool next = !Preview.ShowGizmo;
+                Preview.ShowGizmo = next;
+                if (toolbarGizmoCheck != null && toolbarGizmoCheck.Checked != next)
+                    toolbarGizmoCheck.Checked = next;
+                ((ToolStripMenuItem)s).Checked = next;
                 Preview.Invalidate();
-            }) { Checked = Preview.ShowGizmo, CheckOnClick = true };
+            }) { Checked = Preview.ShowGizmo };
+            menuView.DropDownOpening += (s, e) =>
+            {
+                itemToggleGrid.Checked = Preview.GridSnap;
+                itemToggleGizmo.Checked = Preview.ShowGizmo;
+            };
 
             menuView.DropDownItems.AddRange(new ToolStripItem[]
             {
@@ -522,10 +570,7 @@ namespace AirstrikeStudio
             // ── Help ──────────────────────────────────────────
             menuHelp = new ToolStripMenuItem("&Help");
             var itemHelp = new ToolStripMenuItem("&Keyboard Shortcuts & Guide", null, (s, e) => EditorHelp.Show(this), Keys.F1);
-            var itemAbout = new ToolStripMenuItem("&About AirStrike 3D Map Studio", null, (s, e) =>
-            {
-                MessageBox.Show(this, "AirStrike 3D Map Studio\r\nInteractive 3D Level Editor, Terrain Sculptor, and Script Studio for AirStrike 3D / AirStrike II / Gulf Thunder.", "About AirStrike 3D Map Studio", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            });
+            var itemAbout = new ToolStripMenuItem("&About AirStrike 3D Map Studio", null, (s, e) => EditorHelp.ShowAbout(this));
 
             menuHelp.DropDownItems.AddRange(new ToolStripItem[] { itemHelp, itemAbout });
 
@@ -614,8 +659,8 @@ namespace AirstrikeStudio
 
             var tabs = new TabControl { Dock = DockStyle.Fill };
             sidebarTabs = tabs;
-            var properties = new TabPage("Selected object");
-            var objects = new TabPage("Object list");
+            var properties = new TabPage("Inspector");
+            var objects = new TabPage("Objects");
             properties.Controls.Add(inspector);
             tabs.TabPages.Add(properties);
 
@@ -699,7 +744,53 @@ namespace AirstrikeStudio
             };
             layout.Controls.Add(objectCount, 0, 4);
 
-            objectSearch.TextChanged += (s, e) => RefreshObjectBrowser();
+            var objectSearchTimer = new Timer { Interval = 120 };
+            objectSearchTimer.Tick += (s, e) =>
+            {
+                objectSearchTimer.Stop();
+                RefreshObjectBrowser();
+            };
+            Disposed += (s, e) => objectSearchTimer.Dispose();
+
+            objectSearch.TextChanged += (s, e) =>
+            {
+                objectSearchTimer.Stop();
+                objectSearchTimer.Start();
+            };
+            objectSearch.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Down)
+                {
+                    if (objectSearchTimer.Enabled) { objectSearchTimer.Stop(); RefreshObjectBrowser(); }
+                    if (placedObjects.Items.Count > 0)
+                    {
+                        placedObjects.Focus();
+                        if (placedObjects.SelectedItems.Count == 0)
+                            placedObjects.Items[0].Selected = true;
+                        e.Handled = true;
+                    }
+                }
+                else if (e.KeyCode == Keys.Enter)
+                {
+                    if (objectSearchTimer.Enabled) { objectSearchTimer.Stop(); RefreshObjectBrowser(); }
+                    if (placedObjects.Items.Count > 0)
+                    {
+                        int id = (int)placedObjects.Items[0].Tag;
+                        Preview.SelectListedObject(id, focus: true);
+                        Preview.Focus();
+                        e.Handled = true;
+                        e.SuppressKeyPress = true;
+                    }
+                }
+                else if (e.KeyCode == Keys.Escape)
+                {
+                    objectSearchTimer.Stop();
+                    objectSearch.Clear();
+                    RefreshObjectBrowser();
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+            };
             objectCategory.SelectedIndexChanged += (s, e) => RefreshObjectBrowser();
 
             Action selectRows = () =>
@@ -715,6 +806,21 @@ namespace AirstrikeStudio
             {
                 if (e.KeyCode != Keys.ControlKey && e.KeyCode != Keys.ShiftKey)
                     selectRows();
+            };
+            placedObjects.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Delete && placedObjects.SelectedItems.Count > 0)
+                {
+                    Preview.DeleteSelected();
+                    e.Handled = true;
+                }
+                else if (e.KeyCode == Keys.Enter && placedObjects.SelectedItems.Count > 0)
+                {
+                    Preview.SelectListedObject((int)placedObjects.SelectedItems[0].Tag, true);
+                    tabs.SelectedTab = properties;
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
             };
             placedObjects.DoubleClick += (s, e) =>
             {
@@ -734,13 +840,14 @@ namespace AirstrikeStudio
             {
                 if (e.Button == MouseButtons.Right && placedObjects.SelectedItems.Count > 0)
                 {
+                    int firstIdx = (int)placedObjects.SelectedItems[0].Tag;
                     var menu = new ContextMenuStrip();
-                    var item = menu.Items.Add("Select all of this type");
-                    item.Click += (a, b) =>
-                    {
-                        int index = (int)placedObjects.SelectedItems[0].Tag;
-                        Preview.SelectAllOfType(index);
-                    };
+                    menu.Items.Add("Focus in 3D view", null, (a, b) => Preview.SelectListedObject(firstIdx, true));
+                    menu.Items.Add("Inspect properties", null, (a, b) => { Preview.SelectListedObject(firstIdx, false); tabs.SelectedTab = properties; });
+                    menu.Items.Add("Select all of this type", null, (a, b) => Preview.SelectAllOfType(firstIdx));
+                    menu.Items.Add(new ToolStripSeparator());
+                    menu.Items.Add("Duplicate (Ctrl+D)", null, (a, b) => { Preview.ArmDuplicate(); Preview.Focus(); });
+                    menu.Items.Add("Delete (Del)", null, (a, b) => Preview.DeleteSelected());
                     menu.Show(placedObjects, e.Location);
                 }
             };
@@ -750,7 +857,7 @@ namespace AirstrikeStudio
 
         private void SetupObjectPalette(TabControl tabs)
         {
-            paletteTab = new TabPage("Object palette");
+            paletteTab = new TabPage("Palette");
             tabs.TabPages.Add(paletteTab);
 
             var mainLayout = new TableLayoutPanel
@@ -886,6 +993,8 @@ namespace AirstrikeStudio
 
             mainLayout.Controls.Add(bottomPanel, 0, 4);
 
+            bool refreshingPalette = false;
+
             Action updateSelection = () =>
             {
                 string selected = paletteList.SelectedItem as string;
@@ -900,7 +1009,7 @@ namespace AirstrikeStudio
                 }
 
                 palettePlaceBtn.Enabled = true;
-                paletteReplaceBtn.Enabled = Preview.SelectedObjects.Length > 0 && !Preview.PlacementPending;
+                paletteReplaceBtn.Enabled = Preview.SelectedObjects.Length > 0;
 
                 var thumb = inspectorAssets.Get(selected);
                 palettePreview.Image = thumb?.Image;
@@ -928,14 +1037,13 @@ namespace AirstrikeStudio
                     palette3dBtn.Enabled = false;
                 }
 
-                if (paletteAutoArm.Checked)
+                if (paletteAutoArm.Checked && !refreshingPalette && tabs.SelectedTab == paletteTab)
                 {
                     try
                     {
                         Preview.ArmPlacement(selected, -1);
-                        Preview.Focus();
                     }
-                    catch { }
+                    catch (Exception ex) { AppLog.Warn(ex); }
                 }
             };
 
@@ -977,6 +1085,8 @@ namespace AirstrikeStudio
                 if (string.IsNullOrEmpty(selected)) return;
                 try
                 {
+                    if (Preview.PlacementPending)
+                        Preview.CancelPlacement();
                     Preview.ReplaceSelected(selected);
                     Preview.Focus();
                 }
@@ -1011,62 +1121,115 @@ namespace AirstrikeStudio
             {
                 paletteCancelBtn.Enabled = Preview.PlacementPending;
                 string selected = paletteList.SelectedItem as string;
-                paletteReplaceBtn.Enabled = !string.IsNullOrEmpty(selected) && Preview.SelectedObjects.Length > 0 && !Preview.PlacementPending;
+                paletteReplaceBtn.Enabled = !string.IsNullOrEmpty(selected) && Preview.SelectedObjects.Length > 0;
             };
 
             Action refreshPalette = () =>
             {
-                string query = paletteSearch.Text.Trim();
-                string cat = (string)paletteCategory.SelectedItem ?? "All categories";
-
-                var allNames = Preview.SceneryLibrary();
-                paletteList.BeginUpdate();
+                refreshingPalette = true;
                 try
                 {
-                    paletteList.Items.Clear();
-                    int matched = 0;
-                    foreach (string name in allNames)
+                    string query = paletteSearch.Text.Trim();
+                    string cat = (string)paletteCategory.SelectedItem ?? "All categories";
+
+                    var allNames = Preview.SceneryLibrary();
+                    paletteList.BeginUpdate();
+                    try
                     {
-                        if (cat != "All categories")
+                        paletteList.Items.Clear();
+                        int matched = 0;
+                        foreach (string name in allNames)
                         {
-                            if (cat.StartsWith("File: "))
+                            if (cat != "All categories")
                             {
-                                string targetFile = cat.Substring(6);
-                                if (inspectorAssets.Definitions.TryGetValue(name, out var d))
+                                if (cat.StartsWith("File: "))
                                 {
-                                    if (!string.Equals(Path.GetFileName(d.Source), targetFile, StringComparison.OrdinalIgnoreCase))
+                                    string targetFile = cat.Substring(6);
+                                    if (inspectorAssets.Definitions.TryGetValue(name, out var d))
+                                    {
+                                        if (!string.Equals(Path.GetFileName(d.Source), targetFile, StringComparison.OrdinalIgnoreCase))
+                                            continue;
+                                    }
+                                    else continue;
+                                }
+                                else
+                                {
+                                    if (ObjectCategory(name) != cat)
                                         continue;
                                 }
-                                else continue;
                             }
-                            else
-                            {
-                                if (ObjectCategory(name) != cat)
-                                    continue;
-                            }
+
+                            if (query.Length > 0 && name.IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0)
+                                continue;
+
+                            paletteList.Items.Add(name);
+                            matched++;
                         }
 
-                        if (query.Length > 0 && name.IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0)
-                            continue;
-
-                        paletteList.Items.Add(name);
-                        matched++;
+                        paletteCount.Text = matched + " / " + allNames.Length + " objects • Double-click or select to place";
+                    }
+                    finally
+                    {
+                        paletteList.EndUpdate();
                     }
 
-                    paletteCount.Text = matched + " / " + allNames.Length + " objects • Double-click or select to place";
+                    if (paletteList.Items.Count > 0 && paletteList.SelectedIndex < 0)
+                        paletteList.SelectedIndex = 0;
+                    else
+                        updateSelection();
                 }
                 finally
                 {
-                    paletteList.EndUpdate();
+                    refreshingPalette = false;
                 }
-
-                if (paletteList.Items.Count > 0 && paletteList.SelectedIndex < 0)
-                    paletteList.SelectedIndex = 0;
-                else
-                    updateSelection();
             };
 
-            paletteSearch.TextChanged += (s, e) => refreshPalette();
+            var paletteSearchTimer = new Timer { Interval = 120 };
+            paletteSearchTimer.Tick += (s, e) =>
+            {
+                paletteSearchTimer.Stop();
+                refreshPalette();
+            };
+            Disposed += (s, e) => paletteSearchTimer.Dispose();
+
+            paletteSearch.TextChanged += (s, e) =>
+            {
+                paletteSearchTimer.Stop();
+                paletteSearchTimer.Start();
+            };
+            paletteSearch.KeyDown += (s, e) =>
+            {
+                if (e.KeyCode == Keys.Down)
+                {
+                    if (paletteSearchTimer.Enabled) { paletteSearchTimer.Stop(); refreshPalette(); }
+                    if (paletteList.Items.Count > 0)
+                    {
+                        paletteList.Focus();
+                        if (paletteList.SelectedIndex < 0) paletteList.SelectedIndex = 0;
+                        e.Handled = true;
+                    }
+                }
+                else if (e.KeyCode == Keys.Enter)
+                {
+                    if (paletteSearchTimer.Enabled) { paletteSearchTimer.Stop(); refreshPalette(); }
+                    string selected = paletteList.SelectedItem as string;
+                    if (!string.IsNullOrEmpty(selected))
+                    {
+                        Preview.ArmPlacement(selected, -1);
+                        Preview.Focus();
+                        e.Handled = true;
+                        e.SuppressKeyPress = true;
+                    }
+                }
+                else if (e.KeyCode == Keys.Escape)
+                {
+                    paletteSearchTimer.Stop();
+                    paletteSearch.Clear();
+                    refreshPalette();
+                    e.Handled = true;
+                    e.SuppressKeyPress = true;
+                }
+            };
             paletteCategory.SelectedIndexChanged += (s, e) => refreshPalette();
             clearFilters.Click += (s, e) =>
             {
@@ -1101,7 +1264,8 @@ namespace AirstrikeStudio
                         continue;
                     if (query.Length > 0
                         && names[i].IndexOf(query, StringComparison.OrdinalIgnoreCase) < 0
-                        && ("#" + i) != query)
+                        && ("#" + i) != query
+                        && i.ToString() != query)
                         continue;
 
                     rows.Add(new ListViewItem(new[]

@@ -39,7 +39,7 @@ namespace AirstrikeStudio
                     this.Icon = new Icon(iconPath);
                 }
             }
-            catch { }
+            catch (Exception logEx) { AppLog.Warn(logEx); }
             Width = 800;
             Height = 600;
             MinimumSize = new Size(600, 400);
@@ -133,12 +133,52 @@ namespace AirstrikeStudio
             mapInfo.Text = "No map currently loaded.";
             mapInfo.ForeColor = Color.LightGray;
 
+            var dropHint = new Label
+            {
+                Text = "Tip: Drag & drop any .hsc map file onto this window to open it in 3D.",
+                Font = new Font("Segoe UI", 9f),
+                ForeColor = Color.FromArgb(148, 163, 184),
+                AutoSize = true,
+                Location = new Point(44, 365)
+            };
+
             launcherPanel.Controls.Add(titleLabel);
             launcherPanel.Controls.Add(subLabel);
             launcherPanel.Controls.Add(openButton);
             launcherPanel.Controls.Add(newButton);
             launcherPanel.Controls.Add(scriptStudioButton);
             launcherPanel.Controls.Add(mapInfo);
+            launcherPanel.Controls.Add(dropHint);
+
+            AllowDrop = true;
+            launcherPanel.AllowDrop = true;
+            DragEventHandler onDragEnter = (s, e) =>
+            {
+                if (e.Data != null && e.Data.GetDataPresent(DataFormats.FileDrop))
+                {
+                    var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+                    if (files != null && files.Any(f => f.EndsWith(".hsc", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        e.Effect = DragDropEffects.Copy;
+                        return;
+                    }
+                }
+                e.Effect = DragDropEffects.None;
+            };
+            DragEventHandler onDragDrop = (s, e) =>
+            {
+                if (e.Data == null || !e.Data.GetDataPresent(DataFormats.FileDrop)) return;
+                var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+                string hsc = files?.FirstOrDefault(f => f.EndsWith(".hsc", StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrEmpty(hsc) && File.Exists(hsc))
+                {
+                    BeginInvoke((Action)(() => Run(() => OpenMapIn3D(hsc))));
+                }
+            };
+            DragEnter += onDragEnter;
+            DragDrop += onDragDrop;
+            launcherPanel.DragEnter += onDragEnter;
+            launcherPanel.DragDrop += onDragDrop;
 
             var bottom = new StatusStrip();
             bottom.Items.Add(status);
@@ -207,7 +247,7 @@ namespace AirstrikeStudio
 
                 if (ActiveForm is GlTerrainWindow glWindow)
                 {
-                    glWindow.Preview.SyncPlacements(Map.Load(map.Bytes()));
+                    glWindow.Preview.SyncPlacements(map.Clone());
                 }
 
                 mapInfo.Text = "Loaded: " + (file.Length == 0 ? "Untitled" : Path.GetFileName(file)) +
@@ -358,7 +398,13 @@ namespace AirstrikeStudio
                     ConnectGlMoves(viewer.Preview);
 
                     viewer.ConnectDocument(
-                        asNew => Save(asNew),
+                        asNew =>
+                        {
+                            bool ok = Save(asNew);
+                            if (ok && !string.IsNullOrEmpty(file))
+                                viewer.RecordRecentMap(file);
+                            return ok;
+                        },
                         () => (dirty ? "● " : "") + (file.Length == 0 ? "Untitled" : Path.GetFileName(file)),
                         () =>
                         {
@@ -371,7 +417,16 @@ namespace AirstrikeStudio
                                 if (!CanLeave()) return null;
                                 return dialog.FileName;
                             }
-                        });
+                        },
+                        targetPath =>
+                        {
+                            byte[] bytes = File.ReadAllBytes(targetPath);
+                            if (!Equal(bytes, Map.Load(bytes).Bytes()))
+                                throw new InvalidDataException("Map does not round-trip exactly.");
+                            if (!CanLeave()) return false;
+                            return true;
+                        },
+                        file);
 
                     viewer.ConnectAssetTools(assets.Root, ChangeWorkspaceAssets, WorkspaceAssetReport);
                     viewer.ConnectTestMission(

@@ -74,29 +74,27 @@ Script Studio can be opened anytime inside **AirStrike 3D Map Studio** via:
 - Pressing `Ctrl + Alt + S` anywhere in the editor.
 - Top Menu: *Tools → Script Studio…*.
 
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ Script Studio — AirStrike 3D Script Editor & Decompiler (.scr)                         │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│ scripts\helic\bot1.scr                                            [Compile & Save (F5)]│
-│ 4,964 bytes • 320 instructions • 25 slots • Active: init, main, damaged, touched       │
-├────────────────────────┬───────────────────────────────────────────────────────────────┤
-│ [ SCRIPT EXPLORER ] «  │ [Decompiled Source] [Assembly (.asm)] [Engine API] [Info]     │
-│ ┌────────────────────┐ │ // AS3D script source (C-like)                                │
-│ │[WP] bot1.scr       │ │ slots 25;                                                     │
-│ │[WP] btr.scr        │ │ entry init = r0;                                              │
-│ │     balon_gaz.scr  │ │ entry main = r251;                                            │
-│ │[WP] kamov.scr      │ │ ...                                                           │
-│ └────────────────────┘ │                                                               │
-└────────────────────────┴───────────────────────────────────────────────────────────────┘
-```
+![Script Studio Interface](docs/images/screenshot_script_studio.png)
 
 ### Studio Tabs:
 1. **Decompiled Source (C-like)**: High-level structured C-syntax editor. Supports direct code edits and one-key compilation (`F5`).
-2. **Assembly (`.asm`)**: Low-level symbolic bytecode mnemonics (`MOV`, `LOAD`, `CALL`, `JZ`, `JMP`).
+2. **Assembly (`.asm — Editable`)**: Low-level symbolic bytecode mnemonics (`MOV`, `LOAD`, `CALL`, `JZ`, `JMP`).
 3. **Assembly Diff (Disk vs Edit)**: Real-time side-by-side diff comparing working memory against the original file on disk.
-4. **Engine API & Functions**: Comprehensive searchable catalog of all built-in functions, exact argument counts, call frequencies, and documentation.
+4. **Engine API & Functions**: Searchable catalog (`Search API:` + **Insert Function**) of all built-in functions, exact argument counts, call frequencies, and documentation.
 5. **String Table & RCSL Info**: Displays slot allocations, active entry points, string constant pool, and pre-cache asset manifests.
+6. **Object Definitions (`.obj`)**: Displays the `.obj` definition blocks and script references associated with the active unit/script.
+
+### Toolbar, `Tools ▾` Menu & Script Explorer:
+- **Compile & Save (`F5`)**: Compiles the active C-like source or `.asm` tab directly into verified `.scr` bytecode and saves to disk.
+- **Target Engine Selector**: Switches API validation and IntelliSense between `Target: Auto-Detect`, `Target: AirStrike 3D [85 Builtins]`, and `Target: Sequel / OpenAirStrike [101]`.
+- **`📁 Scripts (Ctrl+B)` / Explorer**: Toggles the left Script Explorer sidebar, with **Refresh** and **Open .scr…** to load any external `.scr` file.
+- **`Tools ▾` Dropdown**:
+  - **Assign to Selected Map Unit**: Sets the active script as the **Script override** on the currently selected map object.
+  - **New / Clone Script…**: Creates a new `.scr` by cloning an existing template script.
+  - **Find in Script… (`Ctrl+F`)** / **Find & Replace… (`Ctrl+H`)** / **Go to Line… (`Ctrl+G`)**.
+  - **Compile Source to ASM View**: Compiles the C-like source into the `.asm` tab for inspection without saving to disk.
+  - **Export Decompiled C (`.c`)…** / **Export Assembly (`.asm`)…**: Exports the active script's source or assembly to a file.
+  - **Open in External `ScriptStudio.py`…**: Launches the standalone Python `ScriptStudio` GUI (`scrstudio.py` / `scrstudio_gui.py`, backed by `scrcore.py`, `scrcomp.py`, `scrasm.py`, `scrdec.py`, and `scrsrc.py`).
 
 ### IDE Keyboard Shortcuts:
 | Shortcut | Action | Description |
@@ -519,6 +517,26 @@ routine r10 {
 }
 ```
 
+**Matching `.obj` & Custom Asset Exercise (`docs/examples/models/exploding_drum.mdl` + `.tga`):**
+
+![Explosive Fuel Drum Example Model](docs/examples/models/exploding_drum.png)
+
+```text
+exploding_drum {
+    health  25
+    enemy
+    flag    FL_NONTARGET
+    flag    FL_ONGROUND
+
+    model   "models\custom\exploding_drum.mdl"
+    skin    "models\custom\exploding_drum.tga"
+    shadow  SHADOW_PROJECTED
+    attach  id "GAZ" PS_BALON_GAZ "tag_fire"
+    script  "scripts\props\exploding_drum.scr"
+}
+```
+*Try it:* Copy `exploding_drum.mdl` and `exploding_drum.tga` from `docs/examples/models/` into `data\models\custom\`, add the block above to `data\objects\mapobjects.obj`, place it in Map Studio, and press `F6` to test shooting it next to enemies.
+
 ---
 
 ### Tutorial 2: Ground Convoy Patrol with Pause Delays
@@ -569,6 +587,27 @@ routine r20 {
     }
 }
 ```
+
+**Matching `.obj` & Custom Asset Exercise (`docs/examples/models/convoy_truck.mdl` + `.tga`):**
+
+![Convoy Truck Example Model](docs/examples/models/convoy_truck.png)
+
+```text
+convoy_truck {
+    health  80
+    enemy
+    flag    FL_ONGROUND_NORMAL
+    score   300
+
+    model   "models\custom\convoy_truck.mdl"
+    skin    "models\custom\convoy_truck.tga"
+    shadow  SHADOW_PLANAR_LOW
+
+    attach  id "CAMPFIRE_ALMOSTDEAD" "PS_CAMPFIRE_ALMOSTDEAD" origin
+    script  "scripts\vehicles\convoy_truck.scr"
+}
+```
+*Try it:* Copy `convoy_truck.mdl` and `convoy_truck.tga` into `data\models\custom\`, add the block to `data\objects\tanks.obj`, place it on a road, and add 3–4 waypoints in **Routes** with `wait = 2.0` on a middle waypoint.
 
 ---
 
@@ -625,6 +664,30 @@ routine r30 {
     }
 }
 ```
+
+**Matching `.obj` & Custom Asset Exercise (`docs/examples/models/patrol_gunship.mdl` + `.tga`):**
+
+![Patrol Gunship Example Model](docs/examples/models/patrol_gunship.png)
+
+```text
+patrol_gunship {
+    touch   TOUCH_PLAYER
+    model   "models\custom\patrol_gunship.mdl"
+    skin    "models\custom\patrol_gunship.tga"
+    shadow  SHADOW_PLANAR_LOW
+
+    health  120
+    enemy
+    score   400
+
+    attach      "helic_redflare"    "tag_flare1"
+    attach      "helic_redflare"    "tag_flare2"
+    attach abs  "vint_a3_red_big"   "tag_vint1"
+    attach id   "smoke_black"       "PS_CAMPFIRE_HELIC_ALMOSTDEAD" origin
+    script  "scripts\helic\patrol_gunship.scr"
+}
+```
+*Try it:* Copy `patrol_gunship.mdl` and `patrol_gunship.tga` into `data\models\custom\`, add the block to `data\objects\helics.obj`, add a looping flight path (`Loop route = Repeat`), and test `tag_gun1`/`tag_gun2` lasers + smoke damage in `F6`.
 
 ---
 
@@ -688,6 +751,32 @@ routine r20 {
     }
 }
 ```
+
+**Matching `.obj` & Custom Asset Exercise (`docs/examples/models/boss_overlord.mdl` + `.tga`):**
+
+![Boss Overlord Example Model](docs/examples/models/boss_overlord.png)
+
+```text
+boss_overlord {
+    touch   TOUCH_PLAYER
+    model   "models\custom\boss_overlord.mdl"
+    skin    "models\custom\boss_overlord.tga"
+    shadow  SHADOW_PLANAR_HIGH
+
+    health  1500
+    enemy
+    score   2000
+
+    attach      "helic_redflare"    "tag_flare1"
+    attach      "helic_redflare"    "tag_flare2"
+    attach abs  "vint_a3_red_big_i" "tag_vint1"
+    attach abs  "vint_a3_red_big"   "tag_vint2"
+    attach abs  "satellite_vint"    "tag_vint_small"
+    attach id   "smoke_black"       "PS_CAMPFIRE_HELIC_ALMOSTDEAD" origin
+    script  "scripts\boss\boss_overlord.scr"
+}
+```
+*Try it:* Copy `boss_overlord.mdl` and `boss_overlord.tga` into `data\models\custom\`, add the block to `data\objects\helics.obj`, place `boss_overlord` near the end of a level with a boss patrol loop, and test both phases in `F6`.
 
 ---
 

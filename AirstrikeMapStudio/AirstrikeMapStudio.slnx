@@ -6,4 +6,5 @@
   <Project Path="AirstrikeMapStudio/AirstrikeMapStudio.csproj" Id="30e38179-f6d2-41cc-b07a-dfa3b42a4f37">
     <Platform Solution="*|x86" Project="x86" />
   </Project>
+  <Project Path="AirstrikeMapStudio.Tests/AirstrikeMapStudio.Tests.csproj" Id="8a4e4b42-2e10-4d7a-a14e-6e88b0c2b901" />
 </Solution>

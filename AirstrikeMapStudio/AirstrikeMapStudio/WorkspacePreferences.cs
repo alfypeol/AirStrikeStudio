@@ -44,6 +44,9 @@ namespace AirstrikeStudio
         /// <summary>Up to five most-recently-used object names, newest first.</summary>
         public List<string> Recent = new List<string>();
 
+        /// <summary>Up to eight most-recently-opened .hsc map file paths, newest first.</summary>
+        public List<string> RecentMaps = new List<string>();
+
         /// <summary>Five camera bookmarks; each entry is null or {CX,CY,Heading,Pitch,Distance}.</summary>
         public double[][] Bookmarks = new double[5][];
 
@@ -71,7 +74,15 @@ namespace AirstrikeStudio
                         case "IndependentHandles": result.IndependentHandles = raw.Trim() != "0"; break;
 
                         default:
-                            if (key.StartsWith("Recent", StringComparison.Ordinal)
+                            if (key.StartsWith("RecentMap", StringComparison.Ordinal)
+                                && int.TryParse(key.Substring(9), NumberStyles.Integer,
+                                                CultureInfo.InvariantCulture, out int rmi)
+                                && rmi >= 0 && rmi < 8
+                                && !string.IsNullOrWhiteSpace(raw))
+                            {
+                                result.RecentMaps.Add(raw.Trim());
+                            }
+                            else if (key.StartsWith("Recent", StringComparison.Ordinal)
                                 && int.TryParse(key.Substring(6), NumberStyles.Integer,
                                                 CultureInfo.InvariantCulture, out int ri)
                                 && ri >= 0 && ri < 5
@@ -90,8 +101,8 @@ namespace AirstrikeStudio
                     }
                 }
             }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
+            catch (IOException logEx) { AppLog.Warn(logEx); }
+            catch (UnauthorizedAccessException logEx) { AppLog.Warn(logEx); }
             return result;
         }
 
@@ -136,6 +147,9 @@ namespace AirstrikeStudio
                 for (int i = 0; i < Recent.Count && i < 5; i++)
                     lines.Add("Recent" + i + "=" + Recent[i]);
 
+                for (int i = 0; i < RecentMaps.Count && i < 8; i++)
+                    lines.Add("RecentMap" + i + "=" + RecentMaps[i]);
+
                 for (int i = 0; i < 5; i++)
                 {
                     var b = Bookmarks != null && i < Bookmarks.Length ? Bookmarks[i] : null;
@@ -162,8 +176,8 @@ namespace AirstrikeStudio
             finally
             {
                 try { if (File.Exists(temp)) File.Delete(temp); }
-                catch (IOException) { }
-                catch (UnauthorizedAccessException) { }
+                catch (IOException logEx) { AppLog.Warn(logEx); }
+                catch (UnauthorizedAccessException logEx) { AppLog.Warn(logEx); }
             }
         }
     }
@@ -217,6 +231,14 @@ namespace AirstrikeStudio
                     RecentObjects.AddRange(value.Recent);
                 }
 
+                if (value.RecentMaps != null)
+                {
+                    RecentMaps.Clear();
+                    RecentMaps.AddRange(value.RecentMaps);
+                }
+                if (!string.IsNullOrEmpty(currentDocumentPath) && File.Exists(currentDocumentPath))
+                    RecordRecentMap(currentDocumentPath);
+
                 if (value.Maximized) WindowState = FormWindowState.Maximized;
                 PerformLayout();
 
@@ -241,6 +263,7 @@ namespace AirstrikeStudio
                     RouteScope = Preview.RouteDisplayScope,
                     IndependentHandles = Preview.IndependentHandles,
                     Recent = new List<string>(RecentObjects),
+                    RecentMaps = new List<string>(RecentMaps),
                     Bookmarks = new double[5][],
                 };
 

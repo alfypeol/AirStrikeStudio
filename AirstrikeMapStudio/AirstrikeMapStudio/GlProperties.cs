@@ -35,7 +35,7 @@ namespace AirstrikeStudio
 
             // Build the expected map with the change applied, and only
             // proceed if the bytes actually differ.
-            var expected = Map.Load(map.Bytes());
+            var expected = map.Clone();
             expected.Objects[SelectedIndex] = draft.Clone();
             var bytes = expected.Bytes();
             if (bytes.SequenceEqual(map.Bytes())) return;
@@ -97,7 +97,7 @@ namespace AirstrikeStudio
                     else
                         doc.Height = Math.Max(80, sz.Height + 35);
                 }
-                catch { }
+                catch (Exception logEx) { AppLog.Warn(logEx); }
             };
 
             objectProperties.SelectedGridItemChanged += (s, e) => autoScaleDoc();

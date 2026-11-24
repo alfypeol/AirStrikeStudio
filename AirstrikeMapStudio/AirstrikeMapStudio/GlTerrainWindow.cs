@@ -348,8 +348,8 @@ namespace AirstrikeStudio
         public GlTerrainControl(Map source, string name, string dataFolder, string environmentOverride = null)
         {
             terrainName = name;
-            map = Map.Load(source.Bytes());
-            terrainProvider = new TerrainViewer(Map.Load(source.Bytes()), name, dataFolder, environmentOverride);
+            map = source.Clone();
+            terrainProvider = new TerrainViewer(source.Clone(), name, dataFolder, environmentOverride);
 
             // Pull the baked scene and lighting info from the WPF-side TerrainViewer.
             // We do not re-render terrain; we take its WPF Model3DGroup, convert
@@ -379,23 +379,8 @@ namespace AirstrikeStudio
             TabStop = true;
 
             WireMouseAndKeyboard();
-
-            // --- ROUTE PREVIEW TIMER ---
-            routeTimer = new Timer { Interval = 33 };
-            routeTimer.Tick += (s, e) =>
-            {
-                if (timersSuspended) return;
-                Form host = FindForm();
-                if (host != null && host.WindowState == FormWindowState.Minimized) return;
-                if (PreviewRoute && SelectedIndex >= 0)
-                {
-                    routeAnimTime += 0.033;
-                    Invalidate();
-                }
-            };
-            routeTimer.Start();
-            Disposed += (s, e) => routeTimer.Dispose();
-            // ----------------------------
+            // Route preview animation is driven by the single 33 ms timer in SetupWaterAnimation
+            // so water + route animation coalesce into one Invalidate() per frame.
         }
 
         private bool timersSuspended = false;
@@ -405,17 +390,13 @@ namespace AirstrikeStudio
             timersSuspended = true;
             if (waterAnimationTimer != null && waterAnimationTimer.Enabled)
                 waterAnimationTimer.Stop();
-            if (routeTimer != null && routeTimer.Enabled)
-                routeTimer.Stop();
         }
 
         public void ResumeTimers()
         {
             timersSuspended = false;
-            if (waterAnimationTimer != null && !waterAnimationTimer.Enabled && animateWater)
+            if (waterAnimationTimer != null && !waterAnimationTimer.Enabled && (animateWater || PreviewRoute))
                 waterAnimationTimer.Start();
-            if (routeTimer != null && !routeTimer.Enabled && PreviewRoute)
-                routeTimer.Start();
         }
 
 
@@ -480,13 +461,21 @@ namespace AirstrikeStudio
                 waterLastTickMs = now;
 
                 Form host = FindForm();
-                if (!animateWater || !Visible || host == null || host.WindowState == FormWindowState.Minimized)
-                    return;
-                if (dragging || PlacementPending || TerrainMode || TileMode)
+                if (!Visible || host == null || host.WindowState == FormWindowState.Minimized)
                     return;
 
-                waterPhase = (waterPhase + elapsed * WaterWaveFrequency) % (Math.PI * 4);
-                Invalidate();
+                bool needRepaint = false;
+                if (PreviewRoute && SelectedIndex >= 0)
+                {
+                    routeAnimTime += elapsed > 0 ? elapsed : 0.033;
+                    needRepaint = true;
+                }
+                if (animateWater && !dragging && !PlacementPending && !TerrainMode && !TileMode)
+                {
+                    waterPhase = (waterPhase + elapsed * WaterWaveFrequency) % (Math.PI * 4);
+                    needRepaint = true;
+                }
+                if (needRepaint) Invalidate();
             };
             waterAnimationTimer.Start();
             Disposed += (s, e) => { waterAnimationTimer.Stop(); waterAnimationTimer.Dispose(); };
@@ -985,11 +974,12 @@ namespace AirstrikeStudio
             var vp = ViewportRect(w, h);
             glViewport(vp.X, vp.Y, vp.Width, vp.Height);
 
-            // ── Projection: perspective with a 4:3 aspect ────────────────
+            // ── Projection: perspective matching client aspect ───────────
             glMatrixMode(GL_PROJECTION);
             glLoadIdentity();
+            double aspect = w > 0 && h > 0 ? (double)w / h : AspectRatio43;
             double top = VerticalHalfFovTan * NearPlane;
-            double right = top * AspectRatio43;
+            double right = top * aspect;
             glFrustum(-right, right, -top, top, NearPlane, FarPlane);
 
             // ── Modelview: orbit camera around (CenterX, CenterY, 0) ─────
@@ -1037,6 +1027,7 @@ namespace AirstrikeStudio
                 DrawPendingPlacement();       // GlLibrary.cs
 
                 glDisable(GL_ALPHA_TEST);
+                DrawSnapGrid();
                 DrawSelection();              // GlSelection.cs
                 DrawGizmo();                  // GlGizmo.cs
                 DrawRouteOverlay();           // GlRoutes.cs
@@ -1079,11 +1070,38 @@ namespace AirstrikeStudio
         /// Every screen↔world conversion in the partials must use the same
         /// rectangle that glViewport receives, or picking math drifts.
         /// </summary>
+        private void DrawSnapGrid()
+        {
+            if (!GridSnap || map == null) return;
+            int minX = Math.Max(0, (int)Math.Floor(CenterX) - 16);
+            int maxX = Math.Min(map.Width, (int)Math.Ceiling(CenterX) + 16);
+            int minY = Math.Max(0, (int)Math.Floor(CenterY) - 16);
+            int maxY = Math.Min(map.Height, (int)Math.Ceiling(CenterY) + 16);
+            if (minX >= maxX || minY >= maxY) return;
+
+            glDisable(GL_TEXTURE_2D);
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glColor4f(1f, 1f, 1f, 0.16f);
+            glBegin(GL_LINES);
+            const float z = 4f;
+            for (int x = minX; x <= maxX; x++)
+            {
+                glVertex3f(x * 40f, minY * 40f, z);
+                glVertex3f(x * 40f, maxY * 40f, z);
+            }
+            for (int y = minY; y <= maxY; y++)
+            {
+                glVertex3f(minX * 40f, y * 40f, z);
+                glVertex3f(maxX * 40f, y * 40f, z);
+            }
+            glEnd();
+            glDisable(GL_BLEND);
+        }
+
         internal Rectangle ViewportRect(int clientWidth, int clientHeight)
         {
-            int vw = Math.Min(clientWidth, clientHeight * 4 / 3);
-            int vh = vw * 3 / 4;
-            return new Rectangle((clientWidth - vw) / 2, (clientHeight - vh) / 2, vw, vh);
+            return new Rectangle(0, 0, Math.Max(1, clientWidth), Math.Max(1, clientHeight));
         }
 
         // ═════════════════════════════════════════════════════════════════
@@ -1325,9 +1343,19 @@ namespace AirstrikeStudio
                     {
                         CancelPlacement();
                     }
-                    else if (SelectedIndex >= 0 || SelectedObjects.Length > 0)
+                    else if (!TerrainMode && !TileMode)
                     {
-                        SetObjectSelection(new int[0]);
+                        int hit = PickAt(e.X, e.Y);
+                        if (hit >= 0)
+                        {
+                            if (Array.IndexOf(SelectedObjects, hit) < 0)
+                                SetObjectSelection(new[] { hit });
+                            ShowObjectContextMenu(e.X, e.Y);
+                        }
+                        else if (SelectedIndex >= 0 || SelectedObjects.Length > 0)
+                        {
+                            SetObjectSelection(new int[0]);
+                        }
                     }
                 }
             }
@@ -1367,11 +1395,19 @@ namespace AirstrikeStudio
                 CancelEditingAction();
                 e.Handled = true;
             }
+            else if (e.KeyCode == Keys.F && (ModifierKeys & Keys.Control) == 0)
+            {
+                if (SelectedIndex >= 0)
+                {
+                    FocusSelected();
+                    e.Handled = true;
+                }
+            }
             else if (e.KeyCode == Keys.G)
             {
                 if (SelectedIndex >= 0)
                 {
-                    SyncPlacements(Map.Load(map.Bytes()));
+                    SyncPlacements(map.Clone());
                     MessageBox.Show("Recalculated terrain height for selection.", "Ground Snap");
                 }
             }
@@ -1701,7 +1737,7 @@ namespace AirstrikeStudio
                     this.Icon = new Icon(iconPath);
                 }
             }
-            catch { }
+            catch (Exception logEx) { AppLog.Warn(logEx); }
             Width = 1100;
             Height = 820;
             MinimumSize = new Size(750, 500);
